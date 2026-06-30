@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import type { ChatMessageData } from '../types';
+import { AGENTS } from '../types';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 
@@ -17,7 +18,6 @@ export default function ChatView({ messages, onSubmit, disabled }: ChatViewProps
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    // Check if user is near bottom (within 150px threshold)
     const isNearBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight < 150;
     if (isNearBottom) {
@@ -28,63 +28,59 @@ export default function ChatView({ messages, onSubmit, disabled }: ChatViewProps
   const hasMessages = messages.length > 0;
 
   return (
-    <div className="flex flex-col h-screen bg-slate-900">
+    <div className="flex flex-col h-screen bg-retro-bg">
       {/* Scrollable message area */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6"
+        className="flex-1 overflow-y-auto scrollbar-retro px-4 py-6"
       >
-        <div className="max-w-3xl mx-auto space-y-6">
+        <div className="max-w-3xl mx-auto space-y-4">
           {!hasMessages ? (
-            /* ── Welcome screen ── */
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-emerald-500/20 border border-slate-700/50 flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                </svg>
+            /* ── Retro Welcome Screen ── */
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center message-enter">
+              {/* ">_" prompt symbol */}
+              <div className="mb-4">
+                <span className="text-5xl font-bold text-retro-cyan">&gt;_</span>
               </div>
-              <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">
+
+              {/* Title with blinking cursor */}
+              <h1 className="text-2xl font-bold text-retro-cyan mb-2 tracking-tight">
                 Qwen Council
+                <span className="inline-block w-3 h-6 bg-retro-cyan ml-1.5 animate-blink align-middle" />
               </h1>
-              <p className="text-sm text-slate-400 max-w-md leading-relaxed mb-6">
-                Multi-agent code review system. Paste your code below and let
-                six specialized agents analyze it for security, architecture,
-                quality, performance, UX, and visual design issues.
+
+              <p className="text-xs text-gray-500 max-w-md leading-relaxed mb-6 uppercase tracking-wider">
+                Multi-agent code review system. Drop a file below and let
+                six specialized agents analyze it.
               </p>
-              <div className="flex flex-wrap justify-center gap-3 text-xs">
-                <span className="px-3 py-1.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
-                  [S] Seguridad
-                </span>
-                <span className="px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  [A] Arquitectura
-                </span>
-                <span className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20">
-                  [Q] Calidad
-                </span>
-                <span className="px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  [P] Performance
-                </span>
-                <span className="px-3 py-1.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                  [U] UX
-                </span>
-                <span className="px-3 py-1.5 rounded-full bg-pink-500/10 text-pink-400 border border-pink-500/20">
-                  [V] Visión
-                </span>
+
+              {/* Agent badges — sharp retro style */}
+              <div className="flex flex-wrap justify-center gap-2 text-xs">
+                {AGENTS.map((agent) => (
+                  <span
+                    key={agent.id}
+                    className="agent-pill"
+                    style={{
+                      borderLeft: `3px solid ${agent.color}`,
+                    }}
+                  >
+                    <span style={{ color: agent.color }}>[{agent.icon}]</span>
+                    <span className="text-gray-400">{agent.name}</span>
+                  </span>
+                ))}
               </div>
-              <div className="mt-8 text-xs text-slate-600">
-                <kbd className="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 font-mono">
+
+              <div className="mt-8 text-[10px] text-gray-700">
+                <kbd className="px-1.5 py-0.5 bg-retro-bg border border-retro-border font-mono text-gray-600">
                   Ctrl+Enter
                 </kbd>{' '}
-                para enviar
+                to send
               </div>
             </div>
           ) : (
             /* ── Messages ── */
-            messages.map((msg, idx) => (
-              <div
-                key={msg.id}
-                className={`${msg.role === 'user' ? 'pl-0' : 'pl-0'}`}
-              >
+            messages.map((msg) => (
+              <div key={msg.id}>
                 <ChatMessage message={msg} />
               </div>
             ))

@@ -9,26 +9,19 @@ import type {
   ReportMessage,
   ErrorMessage,
 } from '../types';
+import { AGENTS } from '../types';
 
-/* ─── Severity badge config ─────────────────────────────────────────── */
-
-const severityConfig: Record<string, { label: string; dot: string; bg: string; text: string }> = {
-  Crítico: { label: 'Crítico', dot: 'bg-red-500', bg: 'bg-red-500/10', text: 'text-red-400' },
-  Alto: { label: 'Alto', dot: 'bg-orange-500', bg: 'bg-orange-500/10', text: 'text-orange-400' },
-  Medio: { label: 'Medio', dot: 'bg-yellow-500', bg: 'bg-yellow-500/10', text: 'text-yellow-400' },
-  Bajo: { label: 'Bajo', dot: 'bg-green-500', bg: 'bg-green-500/10', text: 'text-green-400' },
-};
+/* ─── Severity badge ─────────────────────────────────────────────────── */
 
 function SeverityBadge({ severity }: { severity: string }) {
-  const cfg = severityConfig[severity] ?? severityConfig.Bajo;
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${cfg.bg} ${cfg.text}`}
-    >
-      <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
-      {cfg.label}
-    </span>
-  );
+  const classMap: Record<string, string> = {
+    Crítico: 'sev-critico',
+    Alto: 'sev-alto',
+    Medio: 'sev-medio',
+    Bajo: 'sev-bajo',
+  };
+  const cls = classMap[severity] ?? 'sev-bajo';
+  return <span className={cls}>{severity.toUpperCase()}</span>;
 }
 
 /* ─── Collapsible section ───────────────────────────────────────────── */
@@ -44,14 +37,14 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border border-slate-700/50 rounded-lg overflow-hidden">
+    <div className="border border-retro-border">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-700/30 transition-colors"
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold text-gray-500 hover:text-retro-cyan hover:bg-retro-bg transition-colors uppercase tracking-wider"
         aria-expanded={open}
         aria-label={title}
       >
-        <span>{title}</span>
+        <span>&gt; {title}</span>
         <svg
           className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
           fill="none"
@@ -62,7 +55,7 @@ function CollapsibleSection({
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {open && <div className="px-3 pb-3 text-sm text-slate-300 leading-relaxed">{children}</div>}
+      {open && <div className="px-3 pb-3 text-sm text-gray-300 leading-relaxed border-t border-retro-border pt-2">{children}</div>}
     </div>
   );
 }
@@ -71,35 +64,30 @@ function CollapsibleSection({
 
 function UserMessageView({ message }: { message: UserMessage }) {
   return (
-    <div className="flex items-start gap-3 animate-fade-in">
-      {/* User avatar */}
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white shadow-md">
-        U
+    <div className="chat-message chat-message-user message-enter">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-bold text-retro-cyan">&gt; USER</span>
+        <span className="text-[10px] text-gray-600">
+          {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </span>
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-sm font-semibold text-slate-200">Tú</span>
-          <span className="text-[10px] text-slate-600">
-            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </span>
-        </div>
-        <div className="rounded-xl overflow-hidden border border-slate-700/60 bg-slate-850">
-          <SyntaxHighlighter
-            language="typescript"
-            style={oneDark}
-            showLineNumbers
-            customStyle={{
-              margin: 0,
-              borderRadius: 0,
-              fontSize: '0.8rem',
-              lineHeight: '1.5',
-              maxHeight: '400px',
-            }}
-            wrapLongLines
-          >
-            {message.code}
-          </SyntaxHighlighter>
-        </div>
+      <div className="border border-retro-border overflow-hidden">
+        <SyntaxHighlighter
+          language="typescript"
+          style={oneDark}
+          showLineNumbers
+          customStyle={{
+            margin: 0,
+            borderRadius: 0,
+            fontSize: '0.75rem',
+            lineHeight: '1.5',
+            maxHeight: '400px',
+            fontFamily: "'Courier New', Courier, monospace",
+          }}
+          wrapLongLines
+        >
+          {message.code}
+        </SyntaxHighlighter>
       </div>
     </div>
   );
@@ -108,22 +96,19 @@ function UserMessageView({ message }: { message: UserMessage }) {
 function AgentProgressView({ message }: { message: AgentProgressMessage }) {
   const allDone = message.agents.every((a) => a.status === 'complete' || a.status === 'error');
   return (
-    <div className="animate-fade-in">
+    <div className="message-enter">
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-sm font-semibold text-slate-300">{message.label}</span>
+        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">&gt; {message.label}</span>
         {!allDone && (
           <span className="flex gap-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+            <span className="w-1.5 h-1.5 bg-retro-cyan status-dot" />
+            <span className="w-1.5 h-1.5 bg-retro-cyan status-dot" style={{ animationDelay: '0.3s' }} />
+            <span className="w-1.5 h-1.5 bg-retro-cyan status-dot" style={{ animationDelay: '0.6s' }} />
           </span>
         )}
         {allDone && (
-          <span className="text-xs text-green-400 font-medium">
-            <svg className="w-3.5 h-3.5 inline-block mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            Completado
+          <span className="text-[10px] text-retro-green font-bold uppercase">
+            [OK]
           </span>
         )}
       </div>
@@ -131,45 +116,30 @@ function AgentProgressView({ message }: { message: AgentProgressMessage }) {
         {message.agents.map((agent) => (
           <div
             key={agent.id}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all duration-300 ${
-              agent.status === 'analyzing'
-                ? 'bg-slate-700/60 ring-1 ring-slate-500/30'
-                : agent.status === 'complete'
-                  ? 'bg-slate-700/30 opacity-80'
-                  : agent.status === 'error'
-                    ? 'bg-red-900/20'
-                    : 'bg-slate-800/50 opacity-60'
-            }`}
+            className="agent-pill"
             style={{
               borderLeft: `3px solid ${agent.color}`,
+              opacity: agent.status === 'waiting' ? 0.5 : 1,
             }}
             role="status"
             aria-label={`${agent.name}: ${agent.status}`}
           >
-            <span
-              className="text-xs font-bold"
-              style={{ color: agent.color }}
-              aria-hidden="true"
-            >
-              {agent.icon}
+            <span className="text-xs font-bold" style={{ color: agent.color }} aria-hidden="true">
+              [{agent.icon}]
             </span>
-            <span className="font-medium text-slate-200">{agent.name}</span>
+            <span className="text-gray-300">{agent.name}</span>
             {agent.status === 'analyzing' && (
               <span className="flex gap-0.5 ml-1">
-                <span className="w-1 h-1 rounded-full bg-current animate-pulse" style={{ color: agent.color }} />
-                <span className="w-1 h-1 rounded-full bg-current animate-pulse" style={{ color: agent.color, animationDelay: '200ms' }} />
-                <span className="w-1 h-1 rounded-full bg-current animate-pulse" style={{ color: agent.color, animationDelay: '400ms' }} />
+                <span className="w-1 h-1 bg-current animate-pulse" style={{ color: agent.color }} />
+                <span className="w-1 h-1 bg-current animate-pulse" style={{ color: agent.color, animationDelay: '200ms' }} />
+                <span className="w-1 h-1 bg-current animate-pulse" style={{ color: agent.color, animationDelay: '400ms' }} />
               </span>
             )}
             {agent.status === 'complete' && (
-              <svg className="w-3 h-3 text-green-400 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
+              <span className="text-retro-green text-[10px] ml-1">[OK]</span>
             )}
             {agent.status === 'error' && (
-              <svg className="w-3 h-3 text-red-400 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <span className="text-retro-red text-[10px] ml-1">[ERR]</span>
             )}
           </div>
         ))}
@@ -182,52 +152,43 @@ function FindingView({ message }: { message: FindingMessage }) {
   const { finding, agentName, agentIcon, agentColor, round } = message;
 
   return (
-    <div className="flex items-start gap-3 animate-fade-in">
-      {/* Agent avatar */}
-      <div
-        className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-md"
-        style={{ backgroundColor: `${agentColor}20` }}
-        aria-label={agentName}
-      >
-        <span className="text-xs font-bold" aria-hidden="true">
-          {agentIcon}
+    <div
+      className="chat-message chat-message-finding message-enter"
+      style={{ borderLeftColor: agentColor }}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <span className="text-xs font-bold" style={{ color: agentColor }}>
+          [{agentIcon}] {agentName}
+        </span>
+        <SeverityBadge severity={finding.impacto} />
+        <span className="text-[10px] text-gray-600 border border-retro-border px-1.5 py-0.5 font-mono">
+          R{round}
         </span>
       </div>
-      <div className="flex-1 min-w-0">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-          <span className="text-sm font-semibold" style={{ color: agentColor }}>
-            {agentName}
-          </span>
-          <SeverityBadge severity={finding.impacto} />
-          <span className="text-[10px] text-slate-600 bg-slate-700/40 px-1.5 py-0.5 rounded-full font-mono">
-            R{round}
-          </span>
-        </div>
 
-        {/* Finding conclusion (bold, prominent) */}
-        <div className="mb-2">
-          <p className="text-sm font-bold text-white leading-relaxed">
-            {finding.hallazgo}
-          </p>
-        </div>
-
-        {/* Detail (collapsible) */}
-        {finding.detalle && (
-          <div className="mb-1.5">
-            <CollapsibleSection title="Detalle">
-              <p>{finding.detalle}</p>
-            </CollapsibleSection>
-          </div>
-        )}
-
-        {/* Proposal (collapsible) */}
-        {finding.propuesta && (
-          <CollapsibleSection title="Propuesta">
-            <p>{finding.propuesta}</p>
-          </CollapsibleSection>
-        )}
+      {/* Finding conclusion */}
+      <div className="mb-2">
+        <p className="text-sm font-bold text-gray-100 leading-relaxed">
+          {finding.hallazgo}
+        </p>
       </div>
+
+      {/* Detail */}
+      {finding.detalle && (
+        <div className="mb-1.5">
+          <CollapsibleSection title="DETALLE">
+            <p>{finding.detalle}</p>
+          </CollapsibleSection>
+        </div>
+      )}
+
+      {/* Proposal */}
+      {finding.propuesta && (
+        <CollapsibleSection title="PROPUESTA">
+          <p>{finding.propuesta}</p>
+        </CollapsibleSection>
+      )}
     </div>
   );
 }
@@ -245,28 +206,23 @@ function ReportView({ message }: { message: ReportMessage }) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
   return (
-    <div className="animate-fade-in">
+    <div className="message-enter">
       {/* Report header */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600/30 flex items-center justify-center">
-          <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-          </svg>
-        </div>
-        <div>
-          <h3 className="text-sm font-bold text-white">Reporte Consolidado</h3>
-          <p className="text-[10px] text-slate-500 font-mono">
-            {report.participants.length} agentes · {report.rounds} rondas · ID: {sessionId.slice(0, 8)}...
-          </p>
-        </div>
+      <div className="flex items-center gap-3 mb-3 px-1">
+        <span className="text-sm font-bold text-retro-cyan uppercase tracking-wider">
+          &gt; REPORTE CONSOLIDADO
+        </span>
+        <span className="text-[10px] text-gray-600 font-mono">
+          {report.participants.length} agents &middot; {report.rounds} rounds &middot; {sessionId.slice(0, 8)}
+        </span>
       </div>
 
       {/* Executive summary */}
-      <div className="bg-slate-700/20 border border-slate-700/50 rounded-lg p-3 mb-3">
-        <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">
-          Resumen Ejecutivo
+      <div className="finding-item mb-3">
+        <p className="text-[10px] text-retro-cyan font-bold uppercase tracking-wider mb-1">
+          &gt; RESUMEN EJECUTIVO
         </p>
-        <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
+        <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
           {report.summary}
         </p>
       </div>
@@ -275,96 +231,97 @@ function ReportView({ message }: { message: ReportMessage }) {
       <div className="flex flex-wrap gap-2 mb-3">
         {Object.entries(counts).map(([sev, count]) => {
           if (count === 0) return null;
-          const cfg = severityConfig[sev] ?? severityConfig.Bajo;
-          return (
-            <span
-              key={sev}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.bg} ${cfg.text}`}
-            >
-              <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
-              {count} {sev}
-            </span>
-          );
+          return <SeverityBadge key={sev} severity={sev} />;
         })}
-        <span className="text-xs text-slate-500 self-center">
-          {report.findings.length} hallazgo{report.findings.length !== 1 ? 's' : ''} en total
+        <span className="text-[10px] text-gray-600 self-center">
+          {report.findings.length} finding{report.findings.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {/* Consolidated findings */}
       <div className="space-y-2">
-        {report.findings.map((finding, idx) => (
-          <div
-            key={idx}
-            className="border border-slate-700/50 rounded-lg overflow-hidden transition-colors hover:border-slate-600/50"
-          >
-            <button
-              onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
-              className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left"
-              aria-expanded={expandedIdx === idx}
-              aria-label={`Hallazgo ${idx + 1}`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs text-slate-500 font-mono flex-shrink-0 w-5">
-                  {idx + 1}
-                </span>
-                <SeverityBadge severity={finding.impacto} />
-                <span className="text-sm font-medium text-slate-200 truncate">
-                  {finding.hallazgo}
-                </span>
-              </div>
-              <svg
-                className={`w-3.5 h-3.5 text-slate-500 flex-shrink-0 transition-transform duration-200 ${
-                  expandedIdx === idx ? 'rotate-180' : ''
-                }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+        {report.findings.map((finding, idx) => {
+          // Find which agent voted what for display
+          const voteEntries = Object.entries(finding.votes);
+          return (
+            <div key={idx} className="finding-item">
+              <button
+                onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
+                className="w-full flex items-center justify-between gap-3 text-left"
+                aria-expanded={expandedIdx === idx}
+                aria-label={`Finding ${idx + 1}`}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            {expandedIdx === idx && (
-              <div className="px-3 pb-3 space-y-2 border-t border-slate-700/50 pt-2">
-                <p className="text-sm text-slate-300">
-                  <span className="text-slate-500 font-medium">Detalle: </span>
-                  {finding.detalle}
-                </p>
-                <p className="text-sm text-slate-300">
-                  <span className="text-slate-500 font-medium">Propuesta: </span>
-                  {finding.propuesta}
-                </p>
-                {Object.keys(finding.votes).length > 0 && (
-                  <div>
-                    <span className="text-xs text-slate-500 font-medium">Votos: </span>
-                    <div className="flex flex-wrap gap-1.5 mt-1">
-                      {Object.entries(finding.votes).map(([agentId, vote]) => (
-                        <span
-                          key={agentId}
-                          className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-slate-700/40 text-slate-400"
-                        >
-                          {agentId}: {vote}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <span>Consenso: {Math.round(finding.consensus_score * 100)}%</span>
-                  <span className="text-slate-700">·</span>
-                  <span>{finding.consensus_level}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs text-gray-600 font-mono flex-shrink-0">
+                    [{idx + 1}]
+                  </span>
+                  <SeverityBadge severity={finding.impacto} />
+                  <span className="text-sm font-bold text-gray-200 truncate">
+                    {finding.hallazgo}
+                  </span>
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+                <svg
+                  className={`w-3.5 h-3.5 text-gray-600 flex-shrink-0 transition-transform duration-200 ${
+                    expandedIdx === idx ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {expandedIdx === idx && (
+                <div className="mt-2 pt-2 space-y-2 border-t border-retro-border">
+                  <p className="text-sm text-gray-400">
+                    <span className="text-retro-cyan font-bold text-[10px] uppercase tracking-wider">Detalle: </span>
+                    {finding.detalle}
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    <span className="text-retro-cyan font-bold text-[10px] uppercase tracking-wider">Propuesta: </span>
+                    {finding.propuesta}
+                  </p>
+                  {voteEntries.length > 0 && (
+                    <div>
+                      <span className="text-[10px] text-gray-600 font-bold uppercase tracking-wider">Votos: </span>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {voteEntries.map(([agentId, vote]) => {
+                          const agent = AGENTS.find((a) => a.id === agentId);
+                          const sevClass = (sev: string) => {
+                            if (sev.toLowerCase().includes('crit') || sev.toLowerCase().includes('alto')) return 'text-retro-red';
+                            if (sev.toLowerCase().includes('med')) return 'text-retro-yellow';
+                            return 'text-retro-green';
+                          };
+                          return (
+                            <span
+                              key={agentId}
+                              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 border border-retro-border bg-retro-bg text-gray-400 font-mono"
+                            >
+                              <span style={{ color: agent?.color ?? '#666' }}>{agentId}</span>
+                              : <span className={sevClass(vote)}>{vote}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-[10px] text-gray-600 font-mono">
+                    <span>Consensus: {Math.round(finding.consensus_score * 100)}%</span>
+                    <span className="text-retro-border">|</span>
+                    <span>{finding.consensus_level}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Session ID footer */}
-      <p className="text-[10px] text-slate-600 font-mono text-center mt-3">
-        Sesión: {sessionId}
+      <p className="text-[10px] text-gray-700 font-mono text-center mt-3">
+        SESSION: {sessionId}
       </p>
     </div>
   );
@@ -372,19 +329,11 @@ function ReportView({ message }: { message: ReportMessage }) {
 
 function ErrorView({ message }: { message: ErrorMessage }) {
   return (
-    <div
-      className="flex items-start gap-3 animate-fade-in p-4 rounded-xl border border-red-500/30 bg-red-500/5"
-      role="alert"
-    >
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-        <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-        </svg>
+    <div className="chat-message message-enter border-retro-red" role="alert">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-xs font-bold text-retro-red">[ERROR]</span>
       </div>
-      <div>
-        <p className="text-sm font-semibold text-red-400 mb-1">Error</p>
-        <p className="text-sm text-slate-300">{message.text}</p>
-      </div>
+      <p className="text-sm text-gray-300">{message.text}</p>
     </div>
   );
 }

@@ -1,79 +1,169 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type DragEvent, type ChangeEvent } from 'react';
 
 interface ChatInputProps {
   onSubmit: (code: string, imageUrl?: string) => void;
   disabled: boolean;
 }
 
-const MAX_CODE_LENGTH = 50000;
+const ACCEPTED_EXTENSIONS = [
+  '.py', '.js', '.ts', '.jsx', '.tsx', '.html', '.css', '.json',
+  '.md', '.txt', '.sql', '.java', '.cpp', '.c', '.go', '.rs',
+  '.rb', '.php', '.swift', '.kt', '.yaml', '.yml', '.toml',
+  '.sh', '.bash', '.zsh', '.dockerfile', '.graphql', '.proto',
+];
+
+const ACCEPT_STRING = ACCEPTED_EXTENSIONS.join(',');
+const MAX_FILE_SIZE = 50 * 1024; // 50 KB
+
+interface SelectedFile {
+  name: string;
+  size: number;
+  content: string;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function truncateFileName(name: string, maxLen = 30): string {
+  if (name.length <= maxLen) return name;
+  const ext = name.lastIndexOf('.');
+  if (ext === -1) return name.slice(0, maxLen - 3) + '...';
+  const extStr = name.slice(ext);
+  const base = name.slice(0, ext);
+  const available = maxLen - extStr.length - 3;
+  if (available < 1) return name.slice(0, maxLen - 3) + '...';
+  return base.slice(0, available) + '...' + extStr;
+}
 
 export default function ChatInput({ onSubmit, disabled }: ChatInputProps) {
-  const [code, setCode] = useState('');
+  const [file, setFile] = useState<SelectedFile | null>(null);
   const [showImageInput, setShowImageInput] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const adjustHeight = useCallback(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    const newHeight = Math.min(ta.scrollHeight, 320);
-    ta.style.height = `${Math.max(56, newHeight)}px`;
+  // Reset file input value so same file can be reselected
+  useEffect(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [file]);
+
+  const readFile = useCallback((f: File) => {
+    if (f.size > MAX_FILE_SIZE) {
+      alert(`File too large: ${formatFileSize(f.size)}. Maximum is 50 KB.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = reader.result as string;
+      setFile({
+        name: f.name,
+        size: f.size,
+        content,
+      });
+    };
+    reader.onerror = () => {
+      alert('Error reading file.');
+    };
+    reader.readAsText(f);
   }, []);
 
-  useEffect(() => {
-    adjustHeight();
-  }, [code, adjustHeight]);
+  const handleFileSelect = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      readFile(f);
+    },
+    [readFile]
+  );
 
-  useEffect(() => {
-    if (!disabled && textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [disabled]);
+  const handleDrop = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+      const f = e.dataTransfer.files?.[0];
+      if (!f) return;
+      readFile(f);
+    },
+    [readFile]
+  );
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
+
+  const handleRemoveFile = useCallback(() => {
+    setFile(null);
+  }, []);
 
   const handleSubmit = useCallback(() => {
-    const trimmed = code.trim();
-    if (trimmed.length === 0 || trimmed.length > MAX_CODE_LENGTH || disabled) return;
+    if (!file || disabled) return;
+    const trimmed = file.content.trim();
+    if (trimmed.length === 0) return;
     onSubmit(trimmed, imageUrl.trim() || undefined);
-    setCode('');
+    setFile(null);
     setImageUrl('');
     setShowImageInput(false);
-  }, [code, imageUrl, disabled, onSubmit]);
+  }, [file, imageUrl, disabled, onSubmit]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+    },
+    [handleSubmit]
+  );
 
-  const charCount = code.length;
-  const isOverLimit = charCount > MAX_CODE_LENGTH;
-  const canSubmit = charCount > 0 && charCount <= MAX_CODE_LENGTH && !disabled;
+  const canSubmit = file !== null && file.content.trim().length > 0 && !disabled;
 
   return (
-    <div className="border-t border-slate-700/60 bg-slate-900/95 backdrop-blur-sm pt-3 pb-4 px-4">
+    <div className="border-t-2 border-retro-border bg-retro-surface pt-3 pb-4 px-4">
       {/* Image URL input (expandable) */}
       {showImageInput && (
         <div className="mb-2 animate-fade-in">
           <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+            <svg
+              className="w-5 h-5 text-retro-cyan flex-shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"
+              />
             </svg>
             <input
               type="url"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="Pega una URL de imagen para contexto adicional..."
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 outline-none focus:border-blue-500 transition-colors"
-              aria-label="URL de imagen opcional"
+              placeholder="Paste image URL for additional context..."
+              className="flex-1 bg-retro-bg border border-retro-border px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 outline-none focus:border-retro-cyan transition-colors font-mono"
+              aria-label="Optional image URL"
               disabled={disabled}
             />
             {imageUrl && (
               <button
                 onClick={() => setImageUrl('')}
-                className="text-slate-500 hover:text-slate-300 transition-colors"
-                aria-label="Limpiar URL de imagen"
+                className="text-gray-500 hover:text-retro-cyan transition-colors"
+                aria-label="Clear image URL"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -82,7 +172,7 @@ export default function ChatInput({ onSubmit, disabled }: ChatInputProps) {
             )}
           </div>
           {imageUrl && (
-            <div className="mt-2 max-h-32 overflow-hidden rounded-lg border border-slate-700">
+            <div className="mt-2 max-h-32 overflow-hidden border border-retro-border">
               <img
                 src={imageUrl}
                 alt="Preview"
@@ -96,44 +186,113 @@ export default function ChatInput({ onSubmit, disabled }: ChatInputProps) {
         </div>
       )}
 
-      {/* Textarea + actions */}
+      {/* File drop zone / file info */}
       <div className="flex items-end gap-2">
         <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Paste your code here for review..."
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 pr-12 text-sm text-slate-100 placeholder:text-slate-500 resize-none outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/20 transition-all scrollbar-thin leading-relaxed font-mono"
-            disabled={disabled}
-            rows={1}
-            spellCheck={false}
-            aria-label="Código para revisión"
-          />
-          {/* Char count */}
-          {charCount > 0 && (
-            <span
-              className={`absolute bottom-2 right-3 text-[10px] font-mono ${
-                isOverLimit ? 'text-red-400' : 'text-slate-600'
+          {!file ? (
+            /* ── Drop zone ── */
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Drop file here or click to browse"
+              className={`drop-zone flex flex-col items-center justify-center gap-2 px-4 py-6 transition-colors ${
+                isDragOver ? 'drag-over' : ''
               }`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
             >
-              {charCount}/{MAX_CODE_LENGTH}
-            </span>
+              <svg
+                className="w-8 h-8 text-retro-cyan"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                />
+              </svg>
+              <p className="text-xs text-gray-500 tracking-wider uppercase">
+                DROP FILE HERE
+              </p>
+              <p className="text-[10px] text-gray-600">
+                or click to browse
+              </p>
+              <p className="text-[9px] text-gray-700 mt-1">
+                max 50 KB &middot; .py .js .ts .html .css .json ...
+              </p>
+            </div>
+          ) : (
+            /* ── Selected file info ── */
+            <div className="flex items-center gap-3 px-4 py-3 bg-retro-bg border border-retro-border">
+              {/* File icon */}
+              <svg
+                className="w-8 h-8 text-retro-cyan flex-shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                />
+              </svg>
+              {/* File details */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-200 font-bold truncate">
+                  {truncateFileName(file.name)}
+                </p>
+                <p className="text-[10px] text-gray-500">
+                  {formatFileSize(file.size)} / 50 KB max
+                </p>
+              </div>
+              {/* Remove button */}
+              <button
+                onClick={handleRemoveFile}
+                className="p-1 text-gray-500 hover:text-retro-red transition-colors"
+                aria-label="Remove selected file"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           )}
+
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPT_STRING}
+            className="hidden"
+            onChange={handleFileSelect}
+            aria-hidden="true"
+          />
         </div>
 
         {/* Buttons */}
         <div className="flex items-center gap-1.5 flex-shrink-0 pb-0.5">
-          {/* Attach image */}
+          {/* Attach image toggle */}
           <button
             onClick={() => setShowImageInput(!showImageInput)}
-            className={`p-2.5 rounded-lg transition-colors ${
+            className={`p-2.5 border-2 transition-colors ${
               showImageInput
-                ? 'bg-blue-600/20 text-blue-400'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+                ? 'bg-retro-cyan/10 border-retro-cyan text-retro-cyan'
+                : 'border-retro-border text-gray-500 hover:text-retro-cyan hover:border-retro-cyan'
             }`}
-            aria-label={showImageInput ? 'Ocultar campo de imagen' : 'Adjuntar imagen'}
+            aria-label={showImageInput ? 'Hide image field' : 'Attach image URL'}
             disabled={disabled}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -145,12 +304,12 @@ export default function ChatInput({ onSubmit, disabled }: ChatInputProps) {
             </svg>
           </button>
 
-          {/* Send */}
+          {/* Send button */}
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="p-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-600 text-white transition-all duration-200 disabled:cursor-not-allowed"
-            aria-label="Enviar código para revisión"
+            className="p-2.5 border-2 border-retro-cyan bg-retro-cyan text-black font-bold hover:bg-transparent hover:text-retro-cyan transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-retro-cyan disabled:hover:text-black"
+            aria-label="Send code for review"
           >
             {disabled ? (
               <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -171,17 +330,12 @@ export default function ChatInput({ onSubmit, disabled }: ChatInputProps) {
       </div>
 
       {/* Hint */}
-      {!disabled && charCount === 0 && (
-        <p className="text-[10px] text-slate-600 mt-1.5 text-center">
-          <kbd className="px-1 py-0.5 bg-slate-800 rounded text-[10px] font-mono border border-slate-700">
+      {!disabled && !file && (
+        <p className="text-[10px] text-gray-600 mt-1.5 text-center">
+          <kbd className="px-1 py-0.5 bg-retro-bg text-gray-500 text-[10px] font-mono border border-retro-border">
             Ctrl+Enter
           </kbd>{' '}
-          para enviar
-        </p>
-      )}
-      {isOverLimit && (
-        <p className="text-[10px] text-red-400 mt-1.5 text-center">
-          El código excede el límite de {MAX_CODE_LENGTH.toLocaleString()} caracteres
+          to send
         </p>
       )}
     </div>
