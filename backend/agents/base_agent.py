@@ -83,16 +83,18 @@ class BaseAgent(ABC):
             "You MUST respond ONLY with a list of findings in the following "
             "**Inverted Pyramid** format. Each finding must have this exact structure:\n\n"
             "FINDING: <one-line conclusion>\n"
-            "··· Detail: <concrete evidence: file, line, code fragment>\n"
+            "··· Detail: <concrete evidence with EXACT line numbers, code snippet, CWE reference if applicable>\n"
             "··· Impact: <Crítico | Alto | Medio | Bajo>\n"
-            "··· Proposal: <suggested corrective action>\n\n"
+            "··· Proposal: <step-by-step corrective action with BEFORE/AFTER code example>\n\n"
             "Rules:\n"
             "- Do NOT include any text outside the specified format.\n"
             "- If you find no issues, respond ONLY with: \"NO_FINDINGS\"\n"
             "- Separate each finding with a blank line.\n"
-            "- Be specific: mention actual code lines, fragments, variable/function names.\n"
-            "- Use the correct impact level: Crítico (vulnerability/severe error), "
-            "Alto (significant problem), Medio (important improvement), Bajo (minor suggestion)."
+            "- CRITICAL: Always include EXACT line numbers and the actual problematic code.\n"
+            "- CRITICAL: In Proposal, show BEFORE (problematic code) and AFTER (fixed code).\n"
+            "- CRITICAL: Reference CWE identifiers when applicable (e.g., CWE-89 for SQL injection).\n"
+            "- Use correct impact level: Crítico (exploitable vulnerability/severe bug), "
+            "Alto (significant issue), Medio (important improvement), Bajo (minor suggestion)."
         )
 
     def _build_round_intro(self, round: int) -> str:
@@ -100,7 +102,10 @@ class BaseAgent(ABC):
         if round == 1:
             return (
                 "### Round 1: Individual Analysis\n"
-                "Analyse the code below and produce your findings independently."
+                "Analyse the code below thoroughly and produce ALL findings you detect. "
+                "Be exhaustive — it is better to flag a false positive than to miss a real issue.\n"
+                "For each finding include: exact line numbers, the problematic code, "
+                "CWE reference if applicable, and a concrete fix example (BEFORE/AFTER)."
             )
         elif round == 2:
             return (
@@ -112,15 +117,19 @@ class BaseAgent(ABC):
                 "- \"Agreeing with [Agent] on [finding], I add that...\"\n"
                 "- \"I disagree with [Agent] on [finding] because...\"\n"
                 "- \"Building on [Agent]'s point about [finding], I note that...\"\n\n"
+                "When you AGREE, add new evidence (CWE, additional attack vectors, code examples).\n"
+                "When you DISAGREE, explain WHY with technical justification.\n"
                 "Keep the same Inverted Pyramid format for each finding."
             )
         elif round == 3:
             return (
                 "### Round 3: Final Refinement\n"
-                "You have seen all agents' arguments. Now refine your position:\n"
+                "You have seen all agents' arguments across 2 rounds. Now produce your FINAL refined list:\n"
                 "- You may **KEEP**, **MODIFY**, or **WITHDRAW** each of your findings.\n"
-                "- If you modify a finding, briefly explain why.\n"
-                "- If you withdraw a finding, state explicitly: \"WITHDRAWN: ...\"\n"
+                "- If you modify a finding, explain WHY with evidence from the debate.\n"
+                "- If you withdraw a finding, state \"WITHDRAWN: <reason>\"\n"
+                "- RETAINED findings must include the most precise line numbers, "
+                "strongest evidence, and clearest fix code.\n"
                 "- Keep the Inverted Pyramid format for retained findings."
             )
         return ""
@@ -129,10 +138,10 @@ class BaseAgent(ABC):
         """Format previous-round findings as context for the agent."""
         if not context or round == 1:
             return ""
-        block_parts = ["\n### Previous round findings:\n"]
+        block_parts = ["\n### Previous round findings from other agents:\n"]
         for i, item in enumerate(context, 1):
             agent_name = item.get("agent", f"Agent {i}")
-            block_parts.append(f"\n--- {agent_name} ---")
+            block_parts.append(f"\n--- {agent_name} (Round {item.get('ronda', '?')}) ---")
             hallazgo = item.get("hallazgo", "")
             detalle = item.get("detalle", "")
             impacto = item.get("impacto", "")
@@ -144,6 +153,11 @@ class BaseAgent(ABC):
                 block_parts.append(f"··· Impact: {impacto}")
             if propuesta:
                 block_parts.append(f"··· Proposal: {propuesta}")
+        block_parts.append(
+            "\n\nNow produce YOUR analysis of the code. "
+            "Reference the findings above using Given-New structure. "
+            "Add NEW issues the other agents missed."
+        )
         return "\n".join(block_parts)
 
     def _build_user_prompt(

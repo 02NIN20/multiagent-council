@@ -210,8 +210,11 @@ class CouncilOrchestrator:
 
         # ── Synthesis ────────────────────────────────────────
         logger.info("[%s] Running synthesis", session_id)
-        report = synthesize(flat_by_round)
-        report.session_id = session_id
+        report = await synthesize(
+            flat_by_round,
+            code_context=code[:2000],  # pass truncated code for LLM context
+            session_id=session_id,
+        )
         round_data["report"] = report.model_dump()
 
         # Update working memory

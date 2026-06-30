@@ -67,7 +67,13 @@ class Report(BaseModel):
     """Final synthesis report produced by the council."""
 
     findings: list[ConsolidatedFinding] = Field(default_factory=list)
-    summary: str = Field("", description="Executive summary")
+    summary: str = Field("", description="Executive summary (LLM-generated)")
+    risk_overview: str = Field("", description="Risk heatmap and critical areas")
+    detailed_review: str = Field("", description="Per-file/per-issue detailed analysis")
+    remediation_roadmap: str = Field("", description="Prioritized fix plan with effort estimates")
+    agent_metrics: dict[str, Any] = Field(
+        default_factory=dict, description="Per-agent statistics (findings found, top severity, etc.)"
+    )
     rounds: int = Field(3)
     participants: list[str] = Field(
         default_factory=lambda: ["security", "architecture", "quality", "performance", "ux", "vision"]
