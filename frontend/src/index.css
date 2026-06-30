@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-900 text-slate-100 antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-slate-800 border border-slate-700 rounded-xl shadow-lg;
+  }
+
+  .card-header {
+    @apply text-sm font-semibold text-slate-400 uppercase tracking-wider;
+  }
+
+  .impact-critical {
+    @apply text-red-400 bg-red-400/10 border border-red-400/20;
+  }
+
+  .impact-high {
+    @apply text-orange-400 bg-orange-400/10 border border-orange-400/20;
+  }
+
+  .impact-medium {
+    @apply text-yellow-400 bg-yellow-400/10 border border-yellow-400/20;
+  }
+
+  .impact-low {
+    @apply text-slate-400 bg-slate-400/10 border border-slate-400/20;
+  }
+
+  .btn-primary {
+    @apply px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg
+           transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium rounded-lg
+           transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500
+           focus:ring-offset-2 focus:ring-offset-slate-900;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #475569;
+    border-radius: 3px;
+  }
+}
+
+/* Loading dots animation */
+.loading-dots::after {
+  content: '';
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
