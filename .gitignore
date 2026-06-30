@@ -13,10 +13,11 @@ node_modules/
 frontend/dist/
 frontend/.vite/
 
-# Environment
+# Environment (keep .env.example as template)
 .env
 .env.local
 .env.*.local
+!.env.example
 
 # IDE
 .vscode/
