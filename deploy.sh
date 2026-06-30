@@ -90,7 +90,7 @@ MAX_RETRIES=30
 RETRY=0
 
 while [[ $RETRY -lt $MAX_RETRIES ]]; do
-    HEALTH=$(curl -sf http://localhost:8000/api/health 2>/dev/null || echo "")
+    HEALTH=$(curl -sf http://localhost:80/api/health 2>/dev/null || echo "")
     if echo "$HEALTH" | python3 -c "import sys,json; d=json.load(sys.stdin); exit(0 if d.get('status')=='ok' else 1)" 2>/dev/null; then
         log_ok "Backend API is healthy"
         break
@@ -108,9 +108,9 @@ if [[ $RETRY -eq $MAX_RETRIES ]]; then
 fi
 
 # Verify frontend is serving
-FRONTEND_CHECK=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:5173/ 2>/dev/null || echo "000")
+FRONTEND_CHECK=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:80/ 2>/dev/null || echo "000")
 if [[ "$FRONTEND_CHECK" == "200" ]]; then
-    log_ok "Frontend is serving on http://localhost:5173"
+    log_ok "Frontend is serving on http://localhost:80"
 else
     log_warn "Frontend returned HTTP $FRONTEND_CHECK (might still be starting)"
 fi
@@ -122,9 +122,9 @@ log_info "========================================"
 log_info "  Qwen Council is now running!"
 log_info "========================================"
 echo ""
-echo "  Frontend:  http://$(curl -sf ifconfig.me 2>/dev/null || echo 'localhost'):5173"
-echo "  Backend:   http://localhost:8000"
-echo "  API Docs:  http://localhost:8000/docs"
+echo "  Frontend:  http://$(curl -sf ifconfig.me 2>/dev/null || echo 'localhost')"
+echo "  Backend:   (internal, proxied through nginx)"
+echo "  API Docs:  http://$(curl -sf ifconfig.me 2>/dev/null || echo 'localhost')/docs"
 echo ""
 echo "  To view logs:"
 echo "    docker compose logs -f backend"
@@ -140,7 +140,7 @@ echo ""
 # ── Optional: run a quick test review ─────────────────────────────────────
 
 log_info "Running quick smoke test..."
-TEST_RESULT=$(curl -sf -X POST http://localhost:8000/api/review \
+TEST_RESULT=$(curl -sf -X POST http://localhost:80/api/review \
     -H "Content-Type: application/json" \
     -d '{"code": "def hello():\n    return 1 + 1"}' 2>/dev/null || echo "")
 
