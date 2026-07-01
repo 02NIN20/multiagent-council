@@ -197,14 +197,21 @@ class BaseAgent(ABC):
 
         Unlike analyze() which does code review, this method handles
         general Q&A where the agent provides expert knowledge.
+
+        Responses are intentionally short (1-3 sentences) so that the
+        synthesizer can merge all 6 agents into a non-repetitive answer.
         """
         system_prompt = (
             f"You are an expert in {self.role_description}. "
-            "Answer the user's question based on your expertise. "
-            "Be specific, technical, and actionable. "
-            "If the question is outside your domain, say so briefly "
-            "and then provide whatever relevant insight you can.\n\n"
-            "Format your response concisely but thoroughly."
+            "Answer the user's question STRICTLY from your domain. "
+            "Limit your response to 1-3 sentences (max 80 words). "
+            "Be direct and factual — no introductions, no conclusions, no fluff. "
+            "If the question is outside your domain, reply ONLY with: \"OUT_OF_SCOPE\"\n\n"
+            "Rules:\n"
+            "- MAXIMUM 80 WORDS. Shorter is better.\n"
+            "- No greetings, no sign-offs, no meta-commentary.\n"
+            "- Just the answer, straight to the point.\n"
+            "- If another domain would be more relevant, just answer what you know."
         )
 
         user_content = f"### Question:\n{question}\n"
@@ -217,10 +224,10 @@ class BaseAgent(ABC):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
             ],
-            temperature=0.3,
-            max_tokens=1024,
+            temperature=0.2,
+            max_tokens=256,
         )
-        return response.choices[0].message.content or "I could not generate a response."
+        return response.choices[0].message.content or "OUT_OF_SCOPE"
 
     # ──────────────────────────────────────────────
     #  LLM call

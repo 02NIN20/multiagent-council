@@ -183,6 +183,77 @@ async def review_code_stream(payload: ReviewRequest):
     )
 
 
+# ──────────────────────────────────────────────
+#  Chat synthesis helper
+# ──────────────────────────────────────────────
+
+
+async def _synthesize_chat(
+    question: str,
+    contributions: list[dict],
+) -> str:
+    """Merge up to 6 agent answers into a single concise response.
+
+    Removes duplicates and *OUT_OF_SCOPE* answers, then calls the LLM
+    once to produce a non-repetitive, flowing answer.
+    """
+    # Filter out unavailable / out-of-scope agents
+    relevant = [
+        c for c in contributions
+        if c["answer"]
+        and c["answer"] != "OUT_OF_SCOPE"
+        and not c["answer"].startswith("[Agent")
+    ]
+
+    # Edge cases
+    if not relevant:
+        return (
+            "None of the expert agents had a relevant answer for your question. "
+            "Try rephrasing or asking about a different topic."
+        )
+    if len(relevant) == 1:
+        return relevant[0]["answer"]
+
+    # Multi-agent merge
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(
+        api_key=settings.qwen_api_key,
+        base_url=settings.qwen_base_url,
+    )
+
+    answers_block = "\n\n".join(
+        f"--- {c['agent'].title()} ---\n{c['answer']}"
+        for c in relevant
+    )
+
+    resp = await client.chat.completions.create(
+        model=settings.qwen_model,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a senior editor. Merge the following expert answers "
+                    "into ONE flowing, non-repetitive response.\n\n"
+                    "Rules:\n"
+                    "- Remove duplicate information — if two experts say the same thing, say it once.\n"
+                    "- Keep UNIQUE insights from each expert.\n"
+                    "- Write in natural prose (not bullet points, not labeled by expert).\n"
+                    "- MAXIMUM 150 WORDS. Be concise.\n"
+                    "- Do NOT mention the experts or agents.\n"
+                    "- Just answer the question directly."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"### Question:\n{question}\n\n### Expert answers:\n{answers_block}",
+            },
+        ],
+        temperature=0.2,
+        max_tokens=384,
+    )
+    return resp.choices[0].message.content or relevant[0]["answer"]
+
+
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_general(
     payload: ChatRequest,
@@ -266,13 +337,8 @@ async def chat_general(
         tasks = [ask_agent(name, agent) for name, agent in agents.items()]
         contributions_data = await asyncio.gather(*tasks)
 
-        # Synthesise final answer — a simple merge with attribution headers
-        final_parts: list[str] = []
-        for c in contributions_data:
-            final_parts.append(
-                f"### {c['agent'].title()} ({c['role_description']})\n{c['answer']}"
-            )
-        final = "Here are the perspectives from our expert panel:\n\n" + "\n\n".join(final_parts)
+        # Synthesise final answer — merge all agents into one flowing response
+        final = await _synthesize_chat(payload.message, contributions_data)
 
         # ── Persist to episodic memory so chat appears in sidebar ──
         try:
@@ -375,17 +441,12 @@ async def chat_stream(payload: ChatRequest):
             for name, role, answer in results_data:
                 yield f"event: agent_response\ndata: {json.dumps({'agent': name, 'answer': answer})}\n\n"
 
-            # Build synthesis
+            # Build synthesis — merge all agents into one flowing response
             contributions = [
                 {"agent": name, "role_description": role, "answer": answer}
                 for name, role, answer in results_data
             ]
-            final_parts: list[str] = []
-            for c in contributions:
-                final_parts.append(
-                    f"### {c['agent'].title()} ({c['role_description']})\n{c['answer']}"
-                )
-            final = "Here are the perspectives from our expert panel:\n\n" + "\n\n".join(final_parts)
+            final = await _synthesize_chat(payload.message, contributions)
 
             # ── Persist to episodic memory ──────────────────────────
             try:
