@@ -59,11 +59,24 @@ function buildProgressiveReveal(
 ): () => void {
   let cancelled = false;
 
-  const roundKeys: (keyof typeof response.rounds)[] = [
-    'round_1',
-    'round_2',
-    'round_3',
-  ];
+  const roundKeys = ['round_1', 'round_2', 'round_3'] as const;
+
+  /**
+   * Flatten agent-keyed findings into a single Finding[].
+   */
+  function flattenRound(roundKey: typeof roundKeys[number]): Finding[] {
+    const roundData = response.rounds_raw?.[roundKey];
+    if (!roundData) return [];
+    const result: Finding[] = [];
+    for (const findings of Object.values(roundData)) {
+      if (Array.isArray(findings)) {
+        for (const f of findings) {
+          result.push(f as Finding);
+        }
+      }
+    }
+    return result;
+  }
 
   function markProgress(statuses: AgentProgress[], label: string) {
     if (cancelled) return;
@@ -79,7 +92,7 @@ function buildProgressiveReveal(
     if (cancelled) return;
 
     const roundKey = roundKeys[roundIndex];
-    const findings = response.rounds[roundKey];
+    const findings = flattenRound(roundKey);
 
     if (!findings || findings.length === 0) {
       if (roundIndex < 2) {

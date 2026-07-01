@@ -27,13 +27,14 @@ export interface Report {
 export interface ReviewResponse {
   session_id: string;
   report: Report;
-  rounds: {
-    round_1: Finding[];
-    round_2: Finding[];
-    round_3: Finding[];
-  };
-  rounds_raw?: {
+  rounds_raw: {
+    round_1: Record<string, Finding[]>;
+    round_2: Record<string, Finding[]>;
+    round_3: Record<string, Finding[]>;
     context_preview?: string;
+    instruction?: string;
+    files?: { filename: string; size: number; language?: string }[];
+    report?: Report;
   };
 }
 

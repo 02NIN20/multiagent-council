@@ -52,6 +52,9 @@ export default function ChatView({ messages, onSubmit, disabled, sessionId }: Ch
       : '';
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,11 +63,23 @@ export default function ChatView({ messages, onSubmit, disabled, sessionId }: Ch
           message: question,
           context,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || `HTTP ${res.status}`);
+      }
       const data = await res.json();
-      setFollowUpResponse(data.response || 'No response');
-    } catch {
-      setFollowUpResponse('Error getting response');
+      setFollowUpResponse(data.response || 'I could not generate a response.');
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setFollowUpResponse('Request timed out after 30 seconds. Please try again.');
+      } else {
+        setFollowUpResponse(err instanceof Error ? err.message : 'Error getting response');
+      }
     }
     setFollowUpLoading(false);
   }, [followUp, sessionId, messages]);
