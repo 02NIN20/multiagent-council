@@ -8,16 +8,21 @@ Provides:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, APIStatusError, RateLimitError
 
 from backend.config import settings
 from backend.models.schemas import Finding
 
 logger = logging.getLogger(__name__)
+
+# Retry configuration for rate limits
+MAX_RETRIES = 3
+INITIAL_BACKOFF_MS = 1000
 
 
 class BaseAgent(ABC):
@@ -256,32 +261,61 @@ class BaseAgent(ABC):
     # ──────────────────────────────────────────────
 
     async def _call_llm(self, user_prompt: str) -> str:
-        """Send a chat completion request to Qwen Cloud API and return the text response."""
+        """Send a chat completion request to Qwen Cloud API with retry on rate limits."""
         if not settings.qwen_api_key:
             logger.error("[%s] Qwen API key is not set! Cannot call LLM.", self.name)
             return "NO_FINDINGS"
-        try:
-            response = await self._client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {"role": "system", "content": self._build_system_prompt()},
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.3,
-                max_tokens=2048,
-            )
-            content: str | None = response.choices[0].message.content
-            # Track token usage
-            if hasattr(response, 'usage') and response.usage:
-                self._last_token_usage = {
-                    "input_tokens": response.usage.prompt_tokens,
-                    "output_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens,
-                }
-            return content or "NO_FINDINGS"
-        except Exception as e:
-            logger.error("[%s] LLM call failed: %s: %s", self.name, type(e).__name__, str(e)[:200])
-            return "NO_FINDINGS"
+
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = await self._client.chat.completions.create(
+                    model=self._model,
+                    messages=[
+                        {"role": "system", "content": self._build_system_prompt()},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.3,
+                    max_tokens=2048,
+                )
+                content: str | None = response.choices[0].message.content
+                # Track token usage
+                if hasattr(response, 'usage') and response.usage:
+                    self._last_token_usage = {
+                        "input_tokens": response.usage.prompt_tokens,
+                        "output_tokens": response.usage.completion_tokens,
+                        "total_tokens": response.usage.total_tokens,
+                    }
+                return content or "NO_FINDINGS"
+
+            except RateLimitError as e:
+                last_error = e
+                backoff = (INITIAL_BACKOFF_MS * (2 ** attempt)) / 1000
+                logger.warning(
+                    "[%s] Rate limited (attempt %d/%d). Retrying in %.1fs...",
+                    self.name, attempt + 1, MAX_RETRIES, backoff,
+                )
+                await asyncio.sleep(backoff)
+
+            except APIStatusError as e:
+                if e.status_code == 429:
+                    last_error = e
+                    backoff = (INITIAL_BACKOFF_MS * (2 ** attempt)) / 1000
+                    logger.warning(
+                        "[%s] Rate limited via status 429 (attempt %d/%d). Retrying in %.1fs...",
+                        self.name, attempt + 1, MAX_RETRIES, backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                else:
+                    logger.error("[%s] API error %d: %s", self.name, e.status_code, str(e)[:200])
+                    return "NO_FINDINGS"
+
+            except Exception as e:
+                logger.error("[%s] LLM call failed: %s: %s", self.name, type(e).__name__, str(e)[:200])
+                return "NO_FINDINGS"
+
+        logger.error("[%s] All %d retries exhausted. Last error: %s", self.name, MAX_RETRIES, last_error)
+        return "NO_FINDINGS"
 
     # ──────────────────────────────────────────────
     #  Response parsing
