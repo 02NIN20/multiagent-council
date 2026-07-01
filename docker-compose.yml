@@ -9,8 +9,6 @@ services:
       - "8000"
     env_file:
       - .env
-    environment:
-      qwen_api_key: ${qwen_api_key}
     depends_on:
       db:
         condition: service_healthy
