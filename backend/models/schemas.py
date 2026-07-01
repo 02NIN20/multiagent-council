@@ -132,7 +132,7 @@ class ImageFile(BaseModel):
     content: str = Field(
         ...,
         min_length=1,
-        max_length=500000,
+        max_length=10000000,
         description="Base64-encoded image content",
     )
     mime_type: str = Field(
@@ -181,9 +181,9 @@ class ReviewRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _require_code_or_files(self) -> "ReviewRequest":
-        if not self.code and not self.files:
-            raise ValueError("Either 'code' or 'files' must be provided")
+    def _require_code_or_files_or_images(self) -> "ReviewRequest":
+        if not self.code and not self.files and not self.images:
+            raise ValueError("Either 'code', 'files', or 'images' must be provided")
         return self
 
 
