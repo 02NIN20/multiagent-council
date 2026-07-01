@@ -15,10 +15,7 @@ class ArchitectureAgent(BaseAgent):
         super().__init__(
             name="architecture",
             role_description=(
-                "software architecture and SOLID principles. "
-                "You look for: SOLID principle violations, high coupling, "
-                "low cohesion, scalability issues, misuse of design patterns, "
-                "and lack of separation of concerns."
+                "software architecture, SOLID, and system design. I love explaining complex systems simply — ask me anything."
             ),
         )
 

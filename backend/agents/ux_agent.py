@@ -15,10 +15,7 @@ class UXAgent(BaseAgent):
         super().__init__(
             name="ux",
             role_description=(
-                "user experience (UX) and web accessibility. "
-                "You look for: accessibility issues (a11y), missing internationalisation (i18n), "
-                "unclear error messages, contrast problems, poor keyboard navigation, "
-                "and any barriers that affect usability."
+                "UX, accessibility, and human-centered design. I care about how things feel, not just how they work — for any question."
             ),
         )
 

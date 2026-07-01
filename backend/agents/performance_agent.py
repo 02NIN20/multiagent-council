@@ -15,10 +15,7 @@ class PerformanceAgent(BaseAgent):
         super().__init__(
             name="performance",
             role_description=(
-                "performance and code optimisation. "
-                "You look for: N+1 queries, missing cache, inefficient loops, "
-                "excessive memory usage, performance bottlenecks, "
-                "blocking operations in async code, and patterns that do not scale."
+                "performance optimization and scaling. I think in benchmarks but I'm happy to talk about anything under the sun."
             ),
         )
 

@@ -193,25 +193,24 @@ class BaseAgent(ABC):
     # ──────────────────────────────────────────────
 
     async def answer_question(self, question: str, context: str | None = None) -> str:
-        """Answer a general question in this agent's domain expertise.
+        """Answer ANY question from this agent's unique perspective.
 
         Unlike analyze() which does code review, this method handles
-        general Q&A where the agent provides expert knowledge.
+        general Q&A — from greetings to complex science.
 
-        Responses are intentionally short (1-3 sentences) so that the
-        synthesizer can merge all 6 agents into a non-repetitive answer.
+        Each agent responds briefly (1-3 sentences) so the synthesizer
+        can merge them into a single flowing answer.
         """
         system_prompt = (
-            f"You are an expert in {self.role_description}. "
-            "Answer the user's question STRICTLY from your domain. "
-            "Limit your response to 1-3 sentences (max 80 words). "
-            "Be direct and factual — no introductions, no conclusions, no fluff. "
-            "If the question is outside your domain, reply ONLY with: \"OUT_OF_SCOPE\"\n\n"
+            f"You are {self.role_description} "
+            "You can answer ANY question — greetings, science, philosophy, or tech. "
+            "Adapt your tone to the question:\n"
+            "- For greetings/social: respond with warmth and personality (1-2 sentences).\n"
+            "- For technical/scientific: be concise and insightful (max 80 words).\n\n"
             "Rules:\n"
             "- MAXIMUM 80 WORDS. Shorter is better.\n"
-            "- No greetings, no sign-offs, no meta-commentary.\n"
-            "- Just the answer, straight to the point.\n"
-            "- If another domain would be more relevant, just answer what you know."
+            "- No introductions or sign-offs. Just respond.\n"
+            "- Be yourself — your unique perspective adds value to any topic.\n"
         )
 
         user_content = f"### Question:\n{question}\n"

@@ -52,6 +52,7 @@ from backend.agents.quality_agent import QualityAgent
 from backend.agents.performance_agent import PerformanceAgent
 from backend.agents.ux_agent import UXAgent
 from backend.agents.vision_agent import VisionAgent
+from backend.agents.generalist_agent import GeneralistAgent
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -188,33 +189,72 @@ async def review_code_stream(payload: ReviewRequest):
 # ──────────────────────────────────────────────
 
 
+async def _classify_question(question: str) -> str:
+    """Classify a question as 'social', 'technical', or 'scientific'.
+
+    Uses simple heuristics; no LLM call needed.
+    """
+    q = question.lower().strip()
+
+    # Social / greeting patterns
+    social_keywords = [
+        "hello", "hi ", "hey", "hola", "good morning", "good afternoon",
+        "good evening", "what's up", "sup", "how are you", "how's it going",
+        "nice to meet", "thanks", "thank you", "cool", "awesome",
+        "howdy", "greetings", "salutations", "yo ",
+    ]
+    if any(kw in q for kw in social_keywords) and len(q.split()) < 6:
+        return "social"
+
+    # Scientific (heavy on science terms)
+    scientific_keywords = [
+        "quantum", "physics", "biology", "chemistry", "science",
+        "scientific", "theory of relativity", "evolution", "dna",
+        "thermodynamics", "particle", "atom", "molecule", "gravity",
+        "black hole", "universe", "cosmos", "mathematical", "equation",
+        "formula", "algorithm", "theorem", "proof", "hypothesis",
+        "experiment", "laboratory", "scientist", "physicist",
+        "protein", "cell", "organism", "species", "genetic",
+        "chemical", "reaction", "element", "compound",
+    ]
+    sc_count = sum(1 for kw in scientific_keywords if kw in q)
+    if sc_count >= 2:
+        return "scientific"
+
+    return "technical"
+
+
 async def _synthesize_chat(
     question: str,
     contributions: list[dict],
 ) -> str:
-    """Merge up to 6 agent answers into a single concise response.
+    """Merge agent answers into a single flowing response.
 
-    Removes duplicates and *OUT_OF_SCOPE* answers, then calls the LLM
-    once to produce a non-repetitive, flowing answer.
+    - Social/greeting: picks the best single response (no merge needed).
+    - Technical/scientific: merges all unique insights into one answer.
     """
-    # Filter out unavailable / out-of-scope agents
+    # Filter out unavailable agents
     relevant = [
         c for c in contributions
         if c["answer"]
-        and c["answer"] != "OUT_OF_SCOPE"
         and not c["answer"].startswith("[Agent")
     ]
 
-    # Edge cases
     if not relevant:
-        return (
-            "None of the expert agents had a relevant answer for your question. "
-            "Try rephrasing or asking about a different topic."
-        )
+        return "Hey! I'm here to help. What's on your mind?"
     if len(relevant) == 1:
         return relevant[0]["answer"]
 
-    # Multi-agent merge
+    # Detect question type
+    qtype = await _classify_question(question)
+
+    # Social — just pick the best single response
+    if qtype == "social":
+        # Pick the shortest non-empty response (usually the wittiest)
+        best = min(relevant, key=lambda c: len(c["answer"]))
+        return best["answer"]
+
+    # Technical / scientific — merge all unique insights
     from openai import AsyncOpenAI
     client = AsyncOpenAI(
         api_key=settings.qwen_api_key,
@@ -235,10 +275,10 @@ async def _synthesize_chat(
                     "You are a senior editor. Merge the following expert answers "
                     "into ONE flowing, non-repetitive response.\n\n"
                     "Rules:\n"
-                    "- Remove duplicate information — if two experts say the same thing, say it once.\n"
+                    "- Remove duplicate information.\n"
                     "- Keep UNIQUE insights from each expert.\n"
-                    "- Write in natural prose (not bullet points, not labeled by expert).\n"
-                    "- MAXIMUM 150 WORDS. Be concise.\n"
+                    "- Write in natural prose.\n"
+                    "- MAXIMUM 150 WORDS.\n"
                     "- Do NOT mention the experts or agents.\n"
                     "- Just answer the question directly."
                 ),
@@ -310,6 +350,7 @@ async def chat_general(
             "performance": PerformanceAgent(),
             "ux": UXAgent(),
             "vision": VisionAgent(),
+            "generalist": GeneralistAgent(),
         }
 
         session_id = payload.session_id or f"chat-{uuid.uuid4().hex[:8]}"
@@ -396,6 +437,7 @@ async def chat_stream(payload: ChatRequest):
                 "performance": PerformanceAgent(),
                 "ux": UXAgent(),
                 "vision": VisionAgent(),
+                "generalist": GeneralistAgent(),
             }
 
             session_id = payload.session_id or f"chat-{uuid.uuid4().hex[:8]}"

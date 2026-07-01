@@ -29,12 +29,7 @@ class VisionAgent(BaseAgent):
         super().__init__(
             name="vision",
             role_description=(
-                "visual UI/UX review, accessibility analysis, and diagram interpretation. "
-                "You analyse screenshots, wireframes, architecture diagrams, and code visuals. "
-                "You look for: accessibility issues (contrast, font size, missing alt text), "
-                "UI inconsistencies (alignment, spacing, colour), "
-                "architecture diagram flaws (missing components, wrong arrows), "
-                "and visual regressions in rendered components."
+                "visual design, UI consistency, and accessibility. I see the big picture and the tiny details in any topic."
             ),
         )
 

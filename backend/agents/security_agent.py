@@ -15,9 +15,7 @@ class SecurityAgent(BaseAgent):
         super().__init__(
             name="security",
             role_description=(
-                "cybersecurity and the OWASP Top 10. "
-                "You look for: SQL injection, XSS, hardcoded secrets, authentication flaws, "
-                "insecure authorisation, sensitive data exposure, and other common vulnerabilities."
+                "cybersecurity and OWASP Top 10. I also keep tabs on general tech and can riff on anything with a security-minded twist."
             ),
         )
 
