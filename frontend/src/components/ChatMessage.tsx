@@ -72,7 +72,7 @@ function UserMessageView({ message }: { message: UserMessage }) {
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xs font-bold text-retro-cyan">&gt; USER</span>
         <span className="text-[10px] text-gray-600">
-          {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {new Date(message.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
 
@@ -590,7 +590,7 @@ function AnswerMessageView({ message }: { message: AnswerMessage }) {
         <span className="text-xs font-bold text-retro-cyan">&gt; EXPERT PANEL</span>
         {message.timestamp && (
           <span className="text-[10px] text-gray-600">
-            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {new Date(message.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
       </div>
