@@ -138,7 +138,7 @@ With `restart: unless-stopped` and Docker enabled on systemd, the entire stack s
 
 ### Qwen Cloud API Integration
 
-The backend connects to **Qwen Cloud** (DashScope International) at `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`. Three models power the system:
+The backend connects to **Qwen Cloud** via its OpenAI-compatible API. Three models power the system:
 
 | Model | Purpose |
 |-------|---------|
