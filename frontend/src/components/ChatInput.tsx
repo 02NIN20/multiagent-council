@@ -4,6 +4,10 @@ interface ChatInputProps {
   onSubmit: (code: string, files: { filename: string; content: string }[], imageUrl?: string, instruction?: string) => void;
   onChatSubmit: (message: string) => void;
   disabled: boolean;
+  /** Show simplified follow-up mode (no file attach, chat-only) */
+  followUpMode?: boolean;
+  /** Called instead of onChatSubmit when followUpMode is true */
+  onFollowUpSubmit?: (message: string) => void;
 }
 
 const ACCEPTED_EXTENSIONS = [
@@ -41,7 +45,7 @@ function fileIcon(filename: string): string {
   return FILE_ICONS[ext] || '📄';
 }
 
-export default function ChatInput({ onSubmit, onChatSubmit, disabled }: ChatInputProps) {
+export default function ChatInput({ onSubmit, onChatSubmit, disabled, followUpMode, onFollowUpSubmit }: ChatInputProps) {
   const [files, setFiles] = useState<SelectedFile[]>([]);
   const [chatText, setChatText] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
@@ -50,6 +54,15 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled }: ChatInpu
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset file/image state when toggling follow-up mode
+  useEffect(() => {
+    if (followUpMode) {
+      setFiles([]);
+      setImageUrl('');
+      setShowImageInput(false);
+    }
+  }, [followUpMode]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -133,6 +146,13 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled }: ChatInpu
   const handleSend = useCallback(() => {
     if (disabled) return;
 
+    // Follow-up mode: call onFollowUpSubmit
+    if (followUpMode && chatText.trim()) {
+      onFollowUpSubmit?.(chatText.trim());
+      setChatText('');
+      return;
+    }
+
     // If files are attached → code review mode
     if (files.length > 0) {
       const payload = files.map((f) => ({
@@ -153,7 +173,7 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled }: ChatInpu
       onChatSubmit(chatText.trim());
       setChatText('');
     }
-  }, [files, chatText, imageUrl, disabled, onSubmit, onChatSubmit]);
+  }, [files, chatText, imageUrl, disabled, onSubmit, onChatSubmit, followUpMode, onFollowUpSubmit]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -174,12 +194,12 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled }: ChatInpu
   return (
     <div
       className="relative border-t-2 border-retro-border bg-retro-surface"
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      onDragOver={!followUpMode ? handleDragOver : undefined}
+      onDragLeave={!followUpMode ? handleDragLeave : undefined}
+      onDrop={!followUpMode ? handleDrop : undefined}
     >
-      {/* ── Drag overlay ── */}
-      {isDragOver && (
+      {/* ── Drag overlay (main mode only) ── */}
+      {!followUpMode && isDragOver && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0d1117]/90 border-2 border-dashed border-retro-cyan">
           <div className="text-center">
             <svg className="w-10 h-10 mx-auto text-retro-cyan mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -191,19 +211,21 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled }: ChatInpu
         </div>
       )}
 
-      {/* ── Hidden file input ── */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept={ACCEPT_STRING}
-        multiple
-        className="hidden"
-        onChange={handleFileSelect}
-        aria-hidden="true"
-      />
+      {/* ── Hidden file input (main mode only) ── */}
+      {!followUpMode && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPT_STRING}
+          multiple
+          className="hidden"
+          onChange={handleFileSelect}
+          aria-hidden="true"
+        />
+      )}
 
-      {/* ── Image URL input (expandable) ── */}
-      {showImageInput && (
+      {/* ── Image URL input (main mode only) ── */}
+      {!followUpMode && showImageInput && (
         <div className="px-4 pt-3 pb-1 animate-fade-in">
           <div className="flex items-center gap-2">
             <span className="text-xs text-retro-cyan font-mono">🖼️</span>
@@ -229,36 +251,40 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled }: ChatInpu
 
       {/* ── Main input bar ── */}
       <div className="flex items-end gap-1.5 px-3 py-2.5">
-        {/* Attach files button */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled}
-          className="p-2 text-gray-500 hover:text-retro-cyan transition-colors disabled:opacity-30 flex-shrink-0"
-          aria-label="Attach files"
-          title="Attach files"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
-          </svg>
-        </button>
+        {/* Attach files button (main mode only) */}
+        {!followUpMode && (
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled}
+            className="p-2 text-gray-500 hover:text-retro-cyan transition-colors disabled:opacity-30 flex-shrink-0"
+            aria-label="Attach files"
+            title="Attach files"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+            </svg>
+          </button>
+        )}
 
-        {/* Attach image button */}
-        <button
-          onClick={() => setShowImageInput(!showImageInput)}
-          disabled={disabled}
-          className={`p-2 transition-colors flex-shrink-0 ${showImageInput ? 'text-retro-cyan' : 'text-gray-500 hover:text-retro-cyan'} disabled:opacity-30`}
-          aria-label="Attach image URL"
-          title="Attach image URL"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
-          </svg>
-        </button>
+        {/* Attach image button (main mode only) */}
+        {!followUpMode && (
+          <button
+            onClick={() => setShowImageInput(!showImageInput)}
+            disabled={disabled}
+            className={`p-2 transition-colors flex-shrink-0 ${showImageInput ? 'text-retro-cyan' : 'text-gray-500 hover:text-retro-cyan'} disabled:opacity-30`}
+            aria-label="Attach image URL"
+            title="Attach image URL"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+            </svg>
+          </button>
+        )}
 
         {/* ── File chips + textarea ── */}
         <div className="flex-1 min-w-0">
-          {/* File chips (only when files attached) */}
-          {files.length > 0 && (
+          {/* File chips (main mode only) */}
+          {!followUpMode && files.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-1.5">
               {files.map((f, idx) => (
                 <span
@@ -285,9 +311,11 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled }: ChatInpu
             onChange={(e) => setChatText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              files.length > 0
-                ? "Add instructions for the review... (or press Enter to send)"
-                : "Ask the expert panel a question, paste code, or attach files..."
+              followUpMode
+                ? "Ask a follow-up question about this review..."
+                : files.length > 0
+                  ? "Add instructions for the review... (or press Enter to send)"
+                  : "Ask the expert panel a question, paste code, or attach files..."
             }
             className="w-full bg-transparent text-sm text-gray-200 placeholder:text-gray-600 outline-none resize-none font-mono leading-relaxed"
             rows={1}
@@ -321,7 +349,7 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled }: ChatInpu
       </div>
 
       {/* ── Footer hint ── */}
-      {!disabled && files.length === 0 && !chatText.trim() && (
+      {!disabled && !followUpMode && files.length === 0 && !chatText.trim() && (
         <div className="pb-2 px-4">
           <p className="text-[10px] text-gray-700 text-center flex items-center justify-center gap-3">
             <span>Enter to send · Shift+Enter for new line</span>
@@ -330,7 +358,7 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled }: ChatInpu
           </p>
         </div>
       )}
-      {!disabled && files.length > 0 && (
+      {!disabled && !followUpMode && files.length > 0 && (
         <div className="pb-2 px-4">
           <p className="text-[10px] text-gray-700 text-center">
             Files attached · Press Enter to start code review

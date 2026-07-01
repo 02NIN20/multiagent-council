@@ -45,32 +45,55 @@ export default function App() {
       const session = await getSession(sessionId);
       setActiveSessionId(sessionId);
       setRefreshKey(k => k + 1);
-      // Create a user message from the session
-      const userMsg: ChatMessageData = {
-        id: uid(),
-        role: 'user',
-        content: session.code.slice(0, 100),
-        code: session.code,
-        timestamp: Date.now(),
-      };
-      // Create a report message from stored findings
-      // Handle both new format (object with `report` key) and old format (flat array)
+      // Detect chat session (findings_json contains chat data, not a review report)
       const reportData = session.findings_json;
-      const report = reportData?.report
-        ? reportData.report
-        : {
-            findings: Array.isArray(reportData) ? [] : (reportData?.findings || []),
-            summary: 'Past session',
-            rounds: 3,
-            participants: []
-          };
-      const reportMsg: ChatMessageData = {
-        id: uid(),
-        role: 'report',
-        report,
-        sessionId: session.id,
-      };
-      setMessages([userMsg, reportMsg]);
+      const isChat = Array.isArray(reportData) && reportData[0]?.question !== undefined;
+
+      if (isChat) {
+        // ── Chat session ────────────────────────────────────────
+        const chatData = reportData[0];
+        const userMsg: ChatMessageData = {
+          id: uid(),
+          role: 'user',
+          content: chatData.question || session.code.slice(0, 100),
+          code: '',
+          timestamp: Date.now(),
+        };
+        const answerMsg: ChatMessageData = {
+          id: uid(),
+          role: 'answer',
+          text: chatData.response || 'No response stored',
+          agentContributions: chatData.agent_contributions || [],
+          sessionId: session.id,
+          timestamp: Date.now(),
+        };
+        setMessages([userMsg, answerMsg]);
+      } else {
+        // ── Review session ──────────────────────────────────────
+        const userMsg: ChatMessageData = {
+          id: uid(),
+          role: 'user',
+          content: session.code.slice(0, 100),
+          code: session.code,
+          timestamp: Date.now(),
+        };
+        // Handle both new format (object with `report` key) and old format (flat array)
+        const report = reportData?.report
+          ? reportData.report
+          : {
+              findings: Array.isArray(reportData) ? [] : (reportData?.findings || []),
+              summary: 'Past session',
+              rounds: 3,
+              participants: []
+            };
+        const reportMsg: ChatMessageData = {
+          id: uid(),
+          role: 'report',
+          report,
+          sessionId: session.id,
+        };
+        setMessages([userMsg, reportMsg]);
+      }
     } catch {
       setMessages([{
         id: uid(),
@@ -185,6 +208,7 @@ export default function App() {
         };
         setMessages((prev) => [...prev, answerMsg]);
         setActiveSessionId(response.session_id);
+        setRefreshKey(k => k + 1);
       } catch (err: unknown) {
         const errorText = err instanceof Error ? err.message : 'Failed to get response';
         const errorMsg: ChatMessageData = {

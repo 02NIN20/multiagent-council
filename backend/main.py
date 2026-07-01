@@ -184,12 +184,18 @@ async def review_code_stream(payload: ReviewRequest):
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat_general(payload: ChatRequest):
+async def chat_general(
+    payload: ChatRequest,
+    db: AsyncSession = Depends(get_session),
+):
     """Multi-agent chat for ANY question.
 
     If session_id is provided with existing context, acts as follow-up
     using a single LLM call. Otherwise, routes the question to all 6
     specialised agents in parallel and synthesises a unified answer.
+
+    Every chat interaction is persisted to episodic memory so that it
+    appears in the session sidebar and is available for future reference.
     """
     from openai import AsyncOpenAI
 
@@ -267,6 +273,33 @@ async def chat_general(payload: ChatRequest):
                 f"### {c['agent'].title()} ({c['role_description']})\n{c['answer']}"
             )
         final = "Here are the perspectives from our expert panel:\n\n" + "\n\n".join(final_parts)
+
+        # ── Persist to episodic memory so chat appears in sidebar ──
+        try:
+            from backend.memory.episodic_memory import EpisodicMemoryManager
+
+            mgr = EpisodicMemoryManager(db)
+            await mgr.save(
+                session_id=session_id,
+                code=payload.message,  # store question as "code" for preview
+                findings=[
+                    {
+                        "question": payload.message,
+                        "response": final,
+                        "agent_contributions": [
+                            {
+                                "agent": c["agent"],
+                                "role_description": c["role_description"],
+                                "answer": c["answer"],
+                            }
+                            for c in contributions_data
+                        ],
+                    }
+                ],
+                score=0.5,  # neutral score so it shows up in listing
+            )
+        except Exception:
+            logger.warning("Failed to persist chat session to DB — continuing without persistence")
 
         return ChatResponse(
             response=final,
@@ -353,6 +386,26 @@ async def chat_stream(payload: ChatRequest):
                     f"### {c['agent'].title()} ({c['role_description']})\n{c['answer']}"
                 )
             final = "Here are the perspectives from our expert panel:\n\n" + "\n\n".join(final_parts)
+
+            # ── Persist to episodic memory ──────────────────────────
+            try:
+                from backend.memory.episodic_memory import EpisodicMemoryManager
+                from backend.models.db import async_session_factory
+
+                async with async_session_factory() as persist_db:
+                    mgr = EpisodicMemoryManager(persist_db)
+                    await mgr.save(
+                        session_id=session_id,
+                        code=payload.message,
+                        findings=[{
+                            "question": payload.message,
+                            "response": final,
+                            "agent_contributions": contributions,
+                        }],
+                        score=0.5,
+                    )
+            except Exception:
+                logger.warning("Failed to persist stream chat session to DB")
 
             yield "event: synthesis_complete\ndata: " + json.dumps({
                 "final_answer": final,
