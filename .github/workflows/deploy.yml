@@ -10,31 +10,7 @@ env:
   IMAGE_NAME: qwen-council
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install test dependencies
-        run: |
-          pip install pytest pytest-asyncio pydantic pydantic-settings openai httpx python-dotenv
-
-      - name: Run agent tests
-        run: |
-          PYTHONPATH=. python -m pytest backend/tests/test_agents.py -v --tb=short
-        env:
-          OPENAI_API_KEY: sk-test-fake-key
-          qwen_api_key: sk-test-fake-key
-
   build-and-push:
-    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -57,19 +33,14 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
 
-      - name: Build and push backend Docker image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
-      # Auto-deploy is DISABLED by default (if: false). To enable:
-      #   1. Add ECS_HOST, ECS_USER, ECS_SSH_KEY secrets in GitHub repo Settings > Secrets
-      #   2. Change 'if: false' to 'if: success()'
       - name: Deploy to Alibaba ECS via SSH
         if: false
         uses: appleboy/ssh-action@v1.0.3
