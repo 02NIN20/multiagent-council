@@ -56,4 +56,4 @@ round_start, agent_start, agent_complete, round_complete, synthesis_complete, ne
 - LLM timeout: 300s (was 120s)
 - nginx proxy timeout: 600s (was 130s)
 - Multi-agent: ~97s, $0.23 per review
-- Single-agent: ~26s, $0.02 per review (10.6x fewer findings)
+- Single-agent: ~26s, $0.02 per review (2.25x fewer findings)

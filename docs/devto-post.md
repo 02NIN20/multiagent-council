@@ -46,11 +46,11 @@ I ran a benchmark comparing a single generalist agent vs the full council on the
 
 | Metric | Single-Agent | Multi-Agent | Change |
 |--------|-------------|-------------|--------|
-| Total findings | 12 | 127 | **+958%** |
+| Total findings | 8 | 18 | **+125%** |
 | Categories covered | 6/6 | 6/6 | 100% overlap |
-| Unique findings | 0 | 115 | +115 |
+| Unique findings | 0 | 115 | +10 |
 
-The multi-agent system found **10.6x more issues** while preserving everything the single agent caught.
+The multi-agent system found **2.25x more issues** while preserving everything the single agent caught.
 
 ## Deploying on Alibaba Cloud
 

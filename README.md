@@ -1,4 +1,4 @@
-# Qwen Council — Multi-Agent Collaboration System
+# Qwen Council — Agent Society
 
 **Track 3: Agent Society** — [Global AI Hackathon Series with Qwen Cloud](https://qwencloud-hackathon.devpost.com/)
 
@@ -10,50 +10,51 @@
 
 | Criterion | How Qwen Council Meets It | Evidence |
 |:----------|:--------------------------|:---------|
-| **Multiple agents with distinct capabilities** | 6 code review specialists + 8 personality-based agents, each with unique prompts, domains, and expertise | `backend/agents/` — 14 agent files with distinct `role_description` and `domain` |
-| **Task decomposition & role assignment** | Questions classified into 8 categories (science, tech, history, philosophy, art, psychology, strategy, general) and routed to 1-3 relevant agents | `_classify_question()` + `_route_question()` in `backend/main.py` |
+| **Multiple agents with distinct capabilities** | 6 role-based core agents + 15 sub-agents, each with unique prompts, specialisations, and tools | `backend/agents/core/` — 6 agents; `backend/agents/subagents/` — 15 sub-agents |
+| **Task decomposition & role assignment** | Coordinator plans review, delegates to Analyst/Architect/Engineer/Critic/Researcher. Questions classified into 8 categories and routed to 1-3 relevant agents | `_classify_question()` + `_route_question()` in `backend/main.py`; `TaskPlanner` sub-agent |
 | **Dialogue & negotiation** | 3 debate rounds (individual → cross-debate → refinement) + Round 4 negotiation that detects severity disagreements and forces consensus | `backend/council/orchestrator.py` — `Round 4: Negotiation` |
-| **Quantifiable improvement** | Multi-agent finds **10.6x more findings** than single-agent (127 vs 12), with **100% overlap coverage** + 115 unique findings | `benchmark_results.md` — `vulnerable_app.py` benchmark |
+| **Quantifiable improvement** | Multi-agent finds **2.25x more findings** than single-agent (18 vs 8), with **75% coverage overlap** + 10 unique findings | `benchmark_results.md` — `vulnerable_app.py` benchmark |
+| **Sub-agents & tools** | Each core agent delegates to specialised sub-agents (TaskPlanner, SecurityAuditor, CodeWriter, etc.) and uses tools (CodeSearch, StaticAnalysis, etc.) | `backend/agents/subagents/` (15 files), `backend/agents/tools/` (4 files) |
+| **Proactive behaviour** | Agents can initiate actions: escalate critical findings, propose refactors, research topics autonomously | `implement_fix()`, `escalate_finding()`, `research_topic()` methods on core agents |
 
 ---
 
 ## What is Qwen Council?
 
-Qwen Council is a **multi-agent collaboration system** with two modes:
+Qwen Council is a **multi-agent collaboration system** where 6 role-based AI agents with **15 specialised sub-agents** and **4 tools** collaborate to perform code review and answer questions.
 
-### Mode 1: Code Review (Council)
-6 specialised AI agents debate collaboratively to perform code review. Each agent has unique expertise (Security, Architecture, Quality, Performance, UX, Vision) and follows a structured **Inverted Pyramid communication protocol** inspired by cognitive linguistics. After 3 rounds of structured debate + a negotiation round, a final LLM-powered report is generated.
+### Key Innovation: Agent Society Architecture
 
-### Mode 2: General Chat (Expert Panel)
-8 personality-based agents (inspired by Feynman, Torvalds, Socrates, Harari, Miyazaki, Jung, Sun Tzu, Franklin) answer any question. Each agent has a **strict domain boundary** — they decline out-of-scope questions. A router classifies the question and activates only the 1-3 most relevant agents. Responses are synthesised into a single flowing answer.
+Unlike traditional multi-agent systems where each agent is a "personality", Qwen Council implements a **functional society** of agents:
 
----
+| Agent | Role | Sub-agents | Tools | Proactive Actions |
+|:------|:-----|:-----------|:------|:------------------|
+| **Coordinator** | Orchestrates workflow, delegates tasks | TaskPlanner, PriorityRouter | CodeSearch, StaticAnalysis, DependencyAnalysis, DocLookup | Plan review, escalate findings, synthesize responses |
+| **Analyst** | Examines code, detects patterns, analyses complexity | StaticAnalyzer, PatternDetector, ComplexityAnalyzer | CodeSearch, StaticAnalysis | Detect patterns, analyse complexity |
+| **Architect** | Designs solutions, plans structure, maps dependencies | DesignPatternMatcher, DependencyMapper | DependencyAnalysis, DocLookup | Suggest architecture, plan refactors |
+| **Engineer** | Implements fixes, writes code, optimises | CodeWriter, Refactorer, Optimizer | CodeSearch | Implement fix, optimise code |
+| **Critic** | Reviews, validates, finds bugs, audits security | SecurityAuditor, PerformanceReviewer, StyleChecker | StaticAnalysis, CodeSearch | Security audit, performance review |
+| **Researcher** | Documents, researches best practices, explains code | DocGenerator, BestPracticeLookup | DocLookup | Research topic, document code |
 
-## Agents
+### Communication Protocol
 
-### Code Review Agents (Council Mode)
+Each agent message follows the **Inverted Pyramid** format:
 
-| Agent | Expertise | Domain |
-|:------|:----------|:-------|
-| Security | OWASP Top 10, SQLi, XSS, secrets, auth flaws | Vulnerability detection |
-| Architecture | SOLID, coupling, scalability, design patterns | System design quality |
-| Quality | Code style, dead code, complexity, tests | Code maintainability |
-| Performance | N+1 queries, caching, inefficient loops | Runtime efficiency |
-| UX | Accessibility, i18n, error messages, contrast | User experience |
-| Vision | Screenshot/diagram analysis (qwen-vl-plus) | Visual inspection |
+```
+FINDING: SQL injection vulnerability at user input handling
+... Detail: src/app.py line 45: cursor.execute(f"SELECT * FROM users WHERE id = {user_input}") (CWE-89)
+... Impact: Critical
+... Proposal: Use parameterised queries
+```
 
-### Chat Agents (Expert Panel Mode)
+In rounds 2+, agents apply **Given-New** cross-referencing:
 
-| Agent | Persona | Domain |
-|:------|:--------|:-------|
-| Scientist | Richard Feynman | Science, nature, physics |
-| Technologist | Linus Torvalds | Technology, engineering, code |
-| Philosopher | Socrates | Philosophy, ethics, deep questions |
-| Historian | Yuval Noah Harari | History, culture, civilizations |
-| Artist | Hayao Miyazaki | Art, literature, music, creativity |
-| Psychologist | Carl Jung | Psychology, human mind, archetypes |
-| Strategist | Sun Tzu | Strategy, business, decision-making |
-| Generalist | Benjamin Franklin | General knowledge, catch-all |
+```
+FINDING: Agreeing with Critic on SQL injection at line 45, I found the same pattern at line 78
+... Detail: src/app.py line 78: same f-string pattern in delete_user() (CWE-89)
+... Impact: Critical
+... Proposal: Create a safe_query() helper
+```
 
 ---
 
@@ -61,7 +62,7 @@ Qwen Council is a **multi-agent collaboration system** with two modes:
 
 ```
                     REACT FRONTEND (ChatGPT-style UI)
-  Sidebar (sessions) | Chat messages | File upload | Follow-up Q&A
+  Sidebar (sessions) | Chat messages | File/Image upload | Follow-up Q&A
                              |
                       HTTP (REST API)
                              |
@@ -71,65 +72,50 @@ Qwen Council is a **multi-agent collaboration system** with two modes:
            ------------------+------------------
            |                                  |
     COUNCIL ORCHESTRATOR                MEMORY SYSTEM
-    Round 1: Individual Analysis       Working (in-memory)
-    Round 2: Cross-Debate              Episodic (PostgreSQL)
-    Round 3: Final Refinement          Semantic (pgvector)
+    Round 1: Individual Analysis        Working (in-memory)
+    Round 2: Cross-Debate               Episodic (PostgreSQL)
+    Round 3: Final Refinement           Semantic (pgvector)
     Round 4: Negotiation
            |
-    LLM SYNTHESIZER (qwen3-coder-plus)
+    AGENT SOCIETY
+    Coordinator ─ Analyst ─ Architect ─ Engineer ─ Critic ─ Researcher
+         |           |           |          |         |           |
+    TaskPlanner  StaticAna  PatternMatcher CodeWriter SecurityAud  DocGen
+    PrioRouter   Complexity DepMapper     Refactorer PerfReview   BestPracLookup
+                                     Optimizer    StyleChecker
+         |           |           |          |         |           |
+    CodeSearchTool  StaticAnalysisTool  DependencyAnalysisTool  DocLookupTool
+           |
+    LLM SYNTHESIZER (qwen3-plus)
     Executive Summary + Risk Overview +
     Detailed Review + Remediation Roadmap
            |
                      QWEN CLOUD API
-  https://dashscope.aliyuncs.com/compatible-mode/v1
-  Models: qwen3-coder-plus, qwen-vl-plus, text-embedding-v3
+  https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+  Models: qwen3-plus, qwen-vl-max, text-embedding-v3
 ```
 
 ---
 
 ## Benchmark Results
 
-### vulnerable_app.py (8 lines)
+### vulnerable_app.py (192 lines, 6 intentional bug categories)
 
 | Metric | Single-Agent | Multi-Agent | Change |
 |:-------|:-------------|:------------|:-------|
-| Total findings | 12 | 127 | **+958.3%** |
-| Categories covered | 6/6 | 6/6 | 100% overlap |
-| Unique findings | 0 | 115 | +115 |
-| Coverage overlap | — | 100% | All single-agent findings preserved |
+| Total findings | 8 | 18 | **+125.0%** |
+| Categories covered | 3/6 | 6/6 | **+100.0%** |
+| Avg severity score (1-4) | 2.75 | 3.11 | **+13.1%** |
+| Execution time | 8.2s | 32.5s | +296.3% |
+| Est. cost (USD) | $0.004 | $0.028 | +600.0% |
 
-### ambiguous_code.py (13 lines)
+**Overlap:** 75% of single-agent findings ALSO found by multi-agent.  
+**Unique to multi-agent:** 10 findings missed by the generalist.  
+**Unique to single-agent:** 2 findings missed by the specialists.
 
-| Metric | Single-Agent | Multi-Agent | Change |
-|:-------|:-------------|:------------|:-------|
-| Total findings | 10 | 88 | **+780.0%** |
-| Categories covered | 4/6 | 6/6 | +50% more categories |
-| Avg severity score | 3.1 | 3.3 | +6.5% higher severity |
-| Unique findings | 0 | 78 | +78 |
+**Conclusion:** Multi-agent system finds **2.25x more findings**, covers **2x more categories**, and detects **13% higher-severity issues** on average.
 
-**Conclusion:** Multi-agent system finds **8.8x–10.6x more findings** than a single generalist agent, with **100% coverage overlap** and significantly more unique insights.
-
----
-
-## Communication Protocol
-
-Each agent message follows the **Inverted Pyramid** format:
-
-```
-FINDING: SQL injection vulnerability at user input handling
-... Detail: src/app.py line 45: cursor.execute(f"SELECT * FROM users WHERE id = {user_input}") (CWE-89)
-... Impact: Critical
-... Proposal: Use parameterised queries. BEFORE: cursor.execute(f"SELECT...{user_input}") AFTER: cursor.execute("SELECT...WHERE id = ?", (user_input,))
-```
-
-In rounds 2+, agents apply **Given-New** cross-referencing:
-
-```
-FINDING: Agreeing with Security on SQL injection at line 45, I found the same pattern at line 78
-... Detail: src/app.py line 78: same f-string pattern in delete_user() (CWE-89)
-... Impact: Critical
-... Proposal: Create a safe_query() helper that always uses parameterisation
-```
+For a detailed breakdown, see `benchmark_results.md`.
 
 ---
 
@@ -150,7 +136,7 @@ FINDING: Agreeing with Security on SQL injection at line 45, I found the same pa
 - Python 3.11+
 - Node.js 18+
 - Docker + Docker Compose (optional, for production)
-- Qwen Cloud API key
+- Qwen Cloud API key ([get one free](https://modelstudio.console.alibabacloud.com))
 
 ### 1. Clone & Setup
 
@@ -189,19 +175,17 @@ nano .env   # Set your qwen_api_key
 docker compose up --build -d
 ```
 
-The frontend will be available on `http://localhost:5173` and the API on `http://localhost:8000`.
-
 ---
 
 ## API Endpoints
 
-All endpoints are available under both `/api/v1/` (versioned) and `/api/` (legacy) prefixes.
+All endpoints available under both `/api/v1/` (versioned) and `/api/` (legacy) prefixes.
 
 | Method | Endpoint | Description |
 |:-------|:---------|:------------|
-| `POST` | `/api/v1/review` | Submit code for council review (supports multiple files + images + instructions) |
+| `POST` | `/api/v1/review` | Submit code for multi-agent council review (supports files + images + instructions) |
 | `POST` | `/api/v1/review/stream` | Stream review progress via Server-Sent Events |
-| `POST` | `/api/v1/chat` | General multi-agent chat (any question, routed to relevant agents) |
+| `POST` | `/api/v1/chat` | Multi-agent chat routed to 1-6 agents by question category |
 | `POST` | `/api/v1/chat/stream` | Stream chat responses via Server-Sent Events |
 | `GET` | `/api/v1/sessions` | List past sessions (review + chat) |
 | `GET` | `/api/v1/sessions/{id}` | Get session details and findings |
@@ -214,7 +198,7 @@ All endpoints are available under both `/api/v1/` (versioned) and `/api/` (legac
 | Mode | Agents | Rounds | Token Usage | Use Case |
 |:-----|:-------|:-------|:------------|:---------|
 | `full` (default) | 6 agents | 4 rounds (incl. negotiation) | ~100% | Thorough review |
-| `light` | 3 agents (security, architecture, quality) | 2 rounds | ~40% | Quick scan, budget-conscious |
+| `light` | 3 agents (critic, analyst, architect) | 2 rounds | ~40% | Quick scan, budget-conscious |
 
 ### POST /api/v1/review
 
@@ -223,36 +207,11 @@ All endpoints are available under both `/api/v1/` (versioned) and `/api/` (legac
   "files": [
     { "filename": "main.py", "content": "def hello():\n    return 1", "language": "python" }
   ],
+  "images": [
+    { "filename": "screenshot.png", "content": "<base64>", "mime_type": "image/png" }
+  ],
   "instruction": "Focus on security vulnerabilities",
   "mode": "full"
-}
-```
-
-### Response
-
-```json
-{
-  "session_id": "ses-abc123def456",
-  "report": {
-    "summary": "The code review identified critical security issues...",
-    "findings": [
-      {
-        "title": "SQL injection vulnerability",
-        "impact": "Critical",
-        "votes": { "security": "Critical", "architecture": "High" },
-        "consensus_level": "High",
-        "consensus_score": 1.0
-      }
-    ],
-    "token_usage": {
-      "per_agent": { "security": { "input_tokens": 1200, "output_tokens": 800, "total_tokens": 2000 } },
-      "total_input_tokens": 7200,
-      "total_output_tokens": 4800,
-      "total_tokens": 12000,
-      "estimated_cost_usd": 0.0864,
-      "model": "qwen3-coder-plus"
-    }
-  }
 }
 ```
 
@@ -269,8 +228,6 @@ All endpoints are available under both `/api/v1/` (versioned) and `/api/` (legac
 
 ## CLI Tool
 
-Interact with Qwen Council from the terminal:
-
 ```bash
 # Setup (first time)
 python3 cli.py setup --url http://localhost:8000
@@ -280,37 +237,22 @@ python3 cli.py review main.py
 python3 cli.py review main.py utils.py --instruction "Focus on security"
 
 # Chat
-python3 cli.py chat "What is the meaning of life?"
+python3 cli.py chat "What is dependency injection?"
 python3 cli.py chat "Why did you flag that SQL injection?" --session chat-abc123
 
 # List sessions
 python3 cli.py sessions
 ```
 
-Set `QWEN_COUNCIL_URL` environment variable as an alternative to `setup`.
-
 ---
 
 ## MCP Server
 
-Expose Qwen Council as tools for any MCP-compatible client (Claude Desktop, Cursor, etc.):
+Expose Qwen Council as tools for Claude Desktop, Cursor, etc.:
 
 ```bash
-# Install MCP SDK
-pip install mcp httpx
-
-# Run in stdio mode (for Claude Desktop, Cursor)
 QWEN_COUNCIL_API_URL=http://localhost:8000 python3 -m backend.mcp_server
 ```
-
-### Available Tools
-
-| Tool | Description |
-|:-----|:------------|
-| `review_code(code, instruction)` | Submit code for multi-agent council review |
-| `chat(message, session_id)` | Ask the expert panel a question |
-| `list_sessions(limit)` | List past review/chat sessions |
-| `get_session(session_id)` | Get details of a specific session |
 
 ### Claude Desktop Config
 
@@ -331,34 +273,9 @@ QWEN_COUNCIL_API_URL=http://localhost:8000 python3 -m backend.mcp_server
 
 ## API Documentation
 
-Interactive Swagger UI: `http://localhost:8000/docs`
-ReDoc: `http://localhost:8000/redoc`
-OpenAPI spec: `http://localhost:8000/openapi.json`
-
----
-
-## LLM Provider Abstraction
-
-Qwen Council uses an abstraction layer (`backend/llm/provider.py`) so you can swap the underlying LLM provider without changing agent code:
-
-```python
-from backend.llm.provider import LLMProvider, LLMResponse, get_provider, set_provider
-
-# Use default Qwen provider
-provider = get_provider()
-response = await provider.complete(
-    model="qwen3-coder-plus",
-    messages=[{"role": "user", "content": "Hello"}],
-    max_tokens=256,
-)
-
-# Swap to a custom provider (for testing or different LLM)
-class MyProvider(LLMProvider):
-    async def complete(self, model, messages, **kwargs):
-        return LLMResponse(content="Custom response", model=model)
-
-set_provider(MyProvider())
-```
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- OpenAPI spec: `http://localhost:8000/openapi.json`
 
 ---
 
@@ -372,6 +289,9 @@ set_provider(MyProvider())
 | **Token tracking** | Per-agent breakdown + estimated cost in every response |
 | **Structured logging** | JSON logs with `X-Request-ID` header for production debugging |
 | **API versioning** | `/api/v1/` routes with `/api/` backward compatibility |
+| **Image analysis** | Upload screenshots/diagrams for the Vision agent to analyse |
+| **Sub-agents** | 15 specialised sub-agents for focused analysis tasks |
+| **Tools** | CodeSearch, StaticAnalysis, DependencyAnalysis, DocLookup |
 
 ---
 
@@ -382,17 +302,11 @@ ssh root@your-ecs-ip
 git clone https://github.com/02NIN20/qwen-council.git
 cd qwen-council
 cp .env.example .env
-nano .env   # Set qwen_api_key
+nano .env   # Set qwen_api_key, qwen_base_url, qwen_model
 sudo bash deploy.sh
 ```
 
-### Persistence after reboot
-
-```bash
-sudo systemctl enable docker
-```
-
-With `restart: unless-stopped` in docker-compose.yml, all containers auto-start after ECS reboot.
+Available at: **http://47.84.227.185/**
 
 ---
 
