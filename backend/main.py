@@ -222,6 +222,7 @@ async def review_code_stream(payload: ReviewRequest):
                 image_files=payload.images or None,
                 files=payload.files or None,
                 instruction=payload.instruction,
+                mode=payload.mode,
             ):
                 yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
         except Exception:

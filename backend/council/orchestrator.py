@@ -319,6 +319,7 @@ class CouncilOrchestrator:
         image_files: list[Any] | None = None,
         files: list[FileContent] | None = None,
         instruction: str | None = None,
+        mode: str = "full",
     ) -> AsyncGenerator[tuple[str, dict[str, Any]], None]:
         """Async generator that yields ``(event_type, data)`` tuples for SSE streaming.
 
@@ -340,6 +341,16 @@ class CouncilOrchestrator:
         """
         if not session_id:
             session_id = f"ses-{uuid.uuid4().hex[:12]}"
+
+        # Determine agents based on mode
+        if mode == "light":
+            active_agents = {k: self.agents[k] for k in ("security", "architecture", "quality")}
+            total_rounds = 2
+            logger.info("[%s] Light mode (stream): 3 agents, 2 rounds", session_id)
+        else:
+            active_agents = self.agents
+            total_rounds = 3
+            logger.info("[%s] Full mode (stream): 6 agents, 3 rounds", session_id)
 
         # Build full code context from files if provided
         if files:
@@ -367,11 +378,10 @@ class CouncilOrchestrator:
         semantic_patterns = await self._retrieve_semantic_context(code)
 
         all_findings: dict[int, dict[str, list[Finding]]] = {}
-        total_rounds = 3
 
         try:
-            # ── Rounds 1-3 ──────────────────────────────────────────
-            for round_num in (1, 2, 3):
+            # ── Rounds ──────────────────────────────────────────────
+            for round_num in range(1, total_rounds + 1):
                 yield ("round_start", {"round": round_num, "total_rounds": total_rounds})
                 logger.info("[%s] Starting Round %d (stream)", session_id, round_num)
 
@@ -379,7 +389,7 @@ class CouncilOrchestrator:
                 context_per_agent: dict[str, list[dict[str, Any]]] = {}
                 if round_num > 1 and (round_num - 1) in all_findings:
                     prev_findings = all_findings[round_num - 1]
-                    for agent_name in self.agents:
+                    for agent_name in active_agents:
                         others_context: list[dict[str, Any]] = []
                         for other_name, other_findings in prev_findings.items():
                             if other_name != agent_name:
@@ -387,7 +397,7 @@ class CouncilOrchestrator:
                                     others_context.append(f.model_dump())
                         context_per_agent[agent_name] = others_context
                 else:
-                    context_per_agent = {name: [] for name in self.agents}
+                    context_per_agent = {name: [] for name in active_agents}
 
                 # Add semantic context if available
                 code_with_context = code
