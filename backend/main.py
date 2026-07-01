@@ -442,6 +442,25 @@ async def get_session_detail(
         )
 
 
+@app.delete("/api/sessions/{session_id}")
+async def delete_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_session),
+):
+    """Delete a session from memory."""
+    try:
+        mgr = EpisodicMemoryManager(db)
+        deleted = await mgr.delete_session(session_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"status": "deleted", "session_id": session_id}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to delete session %s", session_id)
+        raise HTTPException(status_code=500, detail="Failed to delete session")
+
+
 @app.get("/api/memory/patterns", response_model=list[MemoryPattern])
 async def list_memory_patterns(
     category: str | None = None,

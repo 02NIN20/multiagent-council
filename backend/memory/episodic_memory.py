@@ -79,6 +79,19 @@ class EpisodicMemoryManager:
             await self._apply_reference_bump(record)
         return record
 
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a session from episodic memory.
+
+        Returns True if a record was deleted, False if not found.
+        """
+        record = await self._get_by_session_id(session_id)
+        if record is None:
+            return False
+        await self.session.delete(record)
+        await self.session.commit()
+        logger.info("Deleted episodic memory session '%s'", session_id)
+        return True
+
     async def list_recent(
         self, limit: int = 20, min_score: float | None = None
     ) -> list[EpisodicMemory]:

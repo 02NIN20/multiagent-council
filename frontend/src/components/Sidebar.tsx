@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { getSessions } from '../api/council';
+import { useState, useEffect, useCallback } from 'react';
+import { getSessions, deleteSession } from '../api/council';
 import type { SessionSummary } from '../types';
 
 interface SidebarProps {
@@ -15,13 +15,29 @@ export default function Sidebar({ onNewChat, onSelectSession, activeSessionId, c
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const loadSessions = useCallback(() => {
     setLoading(true);
     getSessions()
       .then(setSessions)
       .catch(() => {}) // silent fail if no DB
       .finally(() => setLoading(false));
-  }, [refreshKey]);
+  }, []);
+
+  useEffect(() => {
+    loadSessions();
+  }, [refreshKey, loadSessions]);
+
+  const handleDelete = useCallback(async (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!confirm('Delete this session permanently?')) return;
+    try {
+      await deleteSession(sessionId);
+      loadSessions(); // refresh list after delete
+    } catch {
+      alert('Failed to delete session');
+    }
+  }, [loadSessions]);
 
   if (collapsed) {
     return (
@@ -72,23 +88,37 @@ export default function Sidebar({ onNewChat, onSelectSession, activeSessionId, c
           <p className="text-[10px] text-gray-700 text-center py-4">No sessions yet</p>
         )}
         {sessions.map((session) => (
-          <button
+          <div
             key={session.id}
-            onClick={() => onSelectSession(session.id)}
-            className={`w-full text-left px-3 py-2 text-xs transition-colors border ${
+            className={`group flex items-start gap-1 px-2 py-2 text-xs transition-colors border cursor-pointer ${
               activeSessionId === session.id
                 ? 'bg-retro-bg border-retro-cyan text-gray-200'
                 : 'bg-transparent border-transparent text-gray-500 hover:bg-retro-bg hover:border-retro-border hover:text-gray-300'
             }`}
+            onClick={() => onSelectSession(session.id)}
           >
-            <p className="font-bold truncate">
-              {activeSessionId === session.id ? '> ' : ''}{session.code_preview.slice(0, 40)}
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] text-gray-600">{session.created_at?.slice(0, 10) || ''}</span>
-              <span className="text-[10px] text-gray-600">{session.finding_count} findings</span>
+            {/* Session info */}
+            <div className="flex-1 min-w-0">
+              <p className="font-bold truncate">
+                {activeSessionId === session.id ? '> ' : ''}{session.code_preview.slice(0, 40)}
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[10px] text-gray-600">{session.created_at?.slice(0, 10) || ''}</span>
+                <span className="text-[10px] text-gray-600">{session.finding_count} findings</span>
+              </div>
             </div>
-          </button>
+            {/* Delete button — visible on hover */}
+            <button
+              onClick={(e) => handleDelete(e, session.id)}
+              className="p-1 text-gray-600 opacity-0 group-hover:opacity-100 hover:text-retro-red transition-all flex-shrink-0"
+              aria-label={`Delete session ${session.id}`}
+              title="Delete session"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+              </svg>
+            </button>
+          </div>
         ))}
       </div>
     </div>

@@ -57,3 +57,9 @@ export async function sendChatMessage(
     }),
   });
 }
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+}
