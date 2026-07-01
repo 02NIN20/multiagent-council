@@ -194,6 +194,9 @@ class BaseAgent(ABC):
 
     async def _call_llm(self, user_prompt: str) -> str:
         """Send a chat completion request to Qwen Cloud API and return the text response."""
+        if not settings.qwen_api_key:
+            logger.error("[%s] Qwen API key is not set! Cannot call LLM.", self.name)
+            return "NO_FINDINGS"
         try:
             response = await self._client.chat.completions.create(
                 model=self._model,
@@ -206,8 +209,8 @@ class BaseAgent(ABC):
             )
             content: str | None = response.choices[0].message.content
             return content or "NO_FINDINGS"
-        except Exception:
-            logger.exception("[%s] LLM call failed", self.name)
+        except Exception as e:
+            logger.error("[%s] LLM call failed: %s: %s", self.name, type(e).__name__, str(e)[:200])
             return "NO_FINDINGS"
 
     # ──────────────────────────────────────────────

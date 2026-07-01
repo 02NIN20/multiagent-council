@@ -58,6 +58,12 @@ logging.basicConfig(
 async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
     logger.info("Starting Qwen Council API")
+    # Log API key status (safely — never log the actual key)
+    key_status = "SET" if settings.qwen_api_key else "NOT SET — agents will return NO_FINDINGS!"
+    logger.info("Qwen API key: %s", key_status)
+    logger.info("Qwen model: %s", settings.qwen_model)
+    logger.info("Qwen base URL: %s", settings.qwen_base_url)
+    logger.info("Database URL: %s", settings.database_url.replace(settings.database_url.split(":")[2].split("@")[0], "****") if "@" in settings.database_url else settings.database_url)
     try:
         await init_db()
         logger.info("Database tables initialised")

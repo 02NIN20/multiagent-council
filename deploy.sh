@@ -80,6 +80,11 @@ log_info "Building Docker images (this may take a few minutes)..."
 docker compose build --pull 2>&1 | tail -5
 
 log_info "Starting services..."
+# Export environment variables explicitly so Docker containers receive them
+# (belt-and-suspenders: both environment and env_file)
+set -a
+source .env
+set +a
 docker compose up -d --remove-orphans
 
 # ── Wait for health checks ────────────────────────────────────────────────
