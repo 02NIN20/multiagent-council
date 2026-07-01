@@ -5,6 +5,9 @@
 The following commands were run **directly on the ECS instance** via SSH.
 The internal metadata service (`100.100.100.200`) is **exclusive to Alibaba Cloud ECS** and confirms the instance is running on real Alibaba infrastructure.
 
+![ECS Instance Console](ecs-instance.png)
+*ECS instance running in Singapore region (ap-southeast-1)*
+
 ```bash
 # Instance ID (unique to this ECS instance)
 $ curl http://100.100.100.200/latest/meta-data/instance-id
@@ -30,6 +33,12 @@ up 3 hours, 48 minutes
 ## 2. Alibaba Cloud Qwen / DashScope API Usage
 
 The system uses **Qwen Cloud (DashScope)** as its LLM provider:
+
+![DashScope Console](qwen-console.png)
+*Qwen Cloud console showing active API keys and models*
+
+![DashScope API Usage](dashscope-usage.png)
+*DashScope API usage dashboard with token consumption and call counts*
 
 | Component | Alibaba Cloud Service | Model |
 |:----------|:----------------------|:------|
