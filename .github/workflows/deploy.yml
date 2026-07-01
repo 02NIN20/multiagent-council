@@ -10,7 +10,30 @@ env:
   IMAGE_NAME: qwen-council
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Run tests
+        run: |
+          cd backend
+          PYTHONPATH=. python -m pytest tests/test_agents.py -v --tb=short
+
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,6 +63,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       # Auto-deploy is DISABLED by default (if: false). To enable:
       #   1. Add ECS_HOST, ECS_USER, ECS_SSH_KEY secrets in GitHub repo Settings > Secrets

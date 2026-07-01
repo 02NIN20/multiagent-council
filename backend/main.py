@@ -17,7 +17,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -128,13 +128,14 @@ app.add_middleware(
 
 orchestrator = CouncilOrchestrator()
 
-
 # ──────────────────────────────────────────────
-#  Endpoints
+#  API v1 Router
 # ──────────────────────────────────────────────
 
+router = APIRouter(prefix="/api/v1")
 
-@app.post("/api/review", response_model=ReviewResponse, tags=["Code Review"])
+
+@router.post("/review", response_model=ReviewResponse, tags=["Code Review"])
 async def review_code(payload: ReviewRequest):
     """Execute the council on the provided source code.
 
@@ -162,7 +163,7 @@ async def review_code(payload: ReviewRequest):
         )
 
 
-@app.post("/api/review/stream", tags=["Code Review"])
+@router.post("/review/stream", tags=["Code Review"])
 async def review_code_stream(payload: ReviewRequest):
     """Stream council progress via Server-Sent Events.
 
@@ -501,7 +502,7 @@ async def _synthesize_chat(
     return resp.choices[0].message.content or relevant[0]["answer"]
 
 
-@app.post("/api/chat", response_model=ChatResponse, tags=["Chat"])
+@router.post("/chat", response_model=ChatResponse, tags=["Chat"])
 async def chat_general(
     payload: ChatRequest,
     db: AsyncSession = Depends(get_session),
@@ -657,7 +658,7 @@ async def chat_general(
         raise HTTPException(status_code=500, detail="Chat failed")
 
 
-@app.post("/api/chat/stream", tags=["Chat"])
+@router.post("/chat/stream", tags=["Chat"])
 async def chat_stream(payload: ChatRequest):
     """Stream multi-agent chat responses via Server-Sent Events.
 
@@ -764,7 +765,7 @@ async def chat_stream(payload: ChatRequest):
     )
 
 
-@app.get("/api/sessions", response_model=list[SessionSummary], tags=["Sessions"])
+@router.get("/sessions", response_model=list[SessionSummary], tags=["Sessions"])
 async def list_sessions(
     limit: int = 20,
     db: AsyncSession = Depends(get_session),
@@ -797,7 +798,7 @@ async def list_sessions(
         raise HTTPException(status_code=500, detail="Failed to list sessions")
 
 
-@app.get("/api/sessions/{session_id}", response_model=SessionDetail, tags=["Sessions"])
+@router.get("/sessions/{session_id}", response_model=SessionDetail, tags=["Sessions"])
 async def get_session_detail(
     session_id: str,
     db: AsyncSession = Depends(get_session),
@@ -829,7 +830,7 @@ async def get_session_detail(
         )
 
 
-@app.delete("/api/sessions/{session_id}", tags=["Sessions"])
+@router.delete("/sessions/{session_id}", tags=["Sessions"])
 async def delete_session(
     session_id: str,
     db: AsyncSession = Depends(get_session),
