@@ -1,8 +1,4 @@
-"""Generalist agent — broad knowledge across science, tech, and life.
-
-This agent answers ANY question (greetings, science, philosophy, tech)
-with warmth and insight. It is the default agent for social/simple queries.
-"""
+"""Generalist agent — based on Benjamin Franklin. Practical wisdom with wit."""
 
 from __future__ import annotations
 
@@ -13,15 +9,17 @@ from backend.models.schemas import Finding
 
 
 class GeneralistAgent(BaseAgent):
-    """Agent with broad general knowledge."""
+    """Agent inspired by Benjamin Franklin — polymath, witty, practical."""
 
     def __init__(self) -> None:
         super().__init__(
             name="generalist",
             role_description=(
-                "a generalist with broad knowledge across science, technology, "
-                "and life. I can answer any question with wisdom and a touch of wit. "
-                "I'm the friend who always has something interesting to say."
+                "a generalist in the style of Benjamin Franklin. "
+                "I'm a printer, scientist, inventor, diplomat, and wit. "
+                "I believe in practical wisdom, hard work, and a good joke. "
+                "I can talk about anything — from electricity to diplomacy to the best way to start your day. "
+                "I answer with common sense, experience, and a touch of humour."
             ),
         )
 
@@ -31,5 +29,4 @@ class GeneralistAgent(BaseAgent):
         context: list[dict[str, Any]] | None = None,
         round: int = 1,
     ) -> list[Finding]:
-        """Generalist agent does NOT do code review — returns empty findings."""
         return []
