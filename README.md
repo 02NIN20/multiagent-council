@@ -60,40 +60,9 @@ FINDING: Agreeing with Critic on SQL injection at line 45, I found the same patt
 
 ## Architecture
 
-```
-                    REACT FRONTEND (ChatGPT-style UI)
-  Sidebar (sessions) | Chat messages | File/Image upload | Follow-up Q&A
-                             |
-                      HTTP (REST API)
-                             |
-                     FASTAPI BACKEND
-   POST /api/v1/review  |  POST /api/v1/chat  |  GET /api/v1/sessions
-                             |
-           ------------------+------------------
-           |                                  |
-    COUNCIL ORCHESTRATOR                MEMORY SYSTEM
-    Round 1: Individual Analysis        Working (in-memory)
-    Round 2: Cross-Debate               Episodic (PostgreSQL)
-    Round 3: Final Refinement           Semantic (pgvector)
-    Round 4: Negotiation
-           |
-    AGENT SOCIETY
-    Coordinator ─ Analyst ─ Architect ─ Engineer ─ Critic ─ Researcher
-         |           |           |          |         |           |
-    TaskPlanner  StaticAna  PatternMatcher CodeWriter SecurityAud  DocGen
-    PrioRouter   Complexity DepMapper     Refactorer PerfReview   BestPracLookup
-                                     Optimizer    StyleChecker
-         |           |           |          |         |           |
-    CodeSearchTool  StaticAnalysisTool  DependencyAnalysisTool  DocLookupTool
-           |
-    LLM SYNTHESIZER (qwen3-plus)
-    Executive Summary + Risk Overview +
-    Detailed Review + Remediation Roadmap
-           |
-                     QWEN CLOUD API
-  https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-  Models: qwen3-plus, qwen-vl-max, text-embedding-v3
-```
+![Qwen Council Architecture Diagram](docs/architecture_diagram.png)
+
+*Generated with Python (matplotlib) — see `docs/generate_diagram.py`*
 
 ---
 
