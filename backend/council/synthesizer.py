@@ -140,7 +140,7 @@ async def _generate_narrative(
 
         system_prompt = (
             "You are a senior technical report writer. Generate a structured code review report "
-            "based on the consolidated findings from 6 AI agents (security, architecture, quality, "
+            "based on the consolidated findings from 6 AI agents (coordinator, analyst, architect, "
             "performance, UX, vision).\n\n"
             "Your response MUST be valid JSON with exactly 4 keys, where each value is a PLAIN TEXT STRING "
             "(not a list, not an object):\n"

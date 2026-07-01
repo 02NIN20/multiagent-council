@@ -134,19 +134,19 @@ def format_report(
         single_metrics.coverage_categories | multi_metrics.coverage_categories
     )
     cat_names = {
-        "security": "Security",
-        "architecture": "Architecture",
-        "quality": "Quality",
-        "performance": "Performance",
-        "ux": "UX / Accessibility",
-        "vision": "Visual / UI",
+        "coordinator": "Coordination",
+        "analyst": "Analysis",
+        "architect": "Architecture",
+        "engineer": "Engineering",
+        "critic": "Critique",
+        "researcher": "Research",
     }
     for cat in all_cats:
         s_covered = "✅" if cat in single_metrics.coverage_categories else "❌"
         m_covered = "✅" if cat in multi_metrics.coverage_categories else "❌"
         name = cat_names.get(cat, cat)
         lines.append(f"  {name:22s}  Single: {s_covered}  Multi: {m_covered}")
-    for cat in ["security", "architecture", "quality", "performance", "ux", "vision"]:
+    for cat in ["coordinator", "analyst", "architect", "engineer", "critic", "researcher"]:
         if cat not in all_cats:
             name = cat_names.get(cat, cat)
             lines.append(f"  {name:22s}  Single: ❌  Multi: ❌")

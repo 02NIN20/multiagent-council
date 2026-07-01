@@ -61,7 +61,8 @@ export interface FileContent {
   language?: string;
 }
 
-export type AgentId = 'security' | 'architecture' | 'quality' | 'performance' | 'ux' | 'vision'
+export type AgentId = 'critic' | 'analyst' | 'architect' | 'engineer' | 'researcher' | 'coordinator'
+  | 'security' | 'quality' | 'performance' | 'ux' | 'vision'
   | 'scientist' | 'technologist' | 'philosopher' | 'historian' | 'artist' | 'psychologist' | 'strategist' | 'generalist';
 
 export type AgentStatus = 'waiting' | 'analyzing' | 'complete' | 'error';
@@ -75,104 +76,48 @@ export interface AgentInfo {
 }
 
 export const AGENTS: AgentInfo[] = [
+  // ── Code Review Core Agents ──
   {
-    id: 'security',
-    name: 'Security',
-    icon: 'S',
+    id: 'critic',
+    name: 'Critic',
+    icon: 'C',
     color: '#EF4444',
-    specialty: 'OWASP, SQLi, XSS, Secrets',
+    specialty: 'Security, Quality, Style, Validation',
   },
   {
-    id: 'architecture',
-    name: 'Architecture',
+    id: 'analyst',
+    name: 'Analyst',
     icon: 'A',
     color: '#3B82F6',
-    specialty: 'SOLID, Patterns, Coupling',
+    specialty: 'Patterns, Complexity, Static Analysis',
   },
   {
-    id: 'quality',
-    name: 'Quality',
-    icon: 'Q',
+    id: 'architect',
+    name: 'Architect',
+    icon: 'R',
     color: '#22C55E',
-    specialty: 'Style, Tests, Complexity',
+    specialty: 'SOLID, Dependencies, Scalability',
   },
   {
-    id: 'performance',
-    name: 'Performance',
-    icon: 'P',
+    id: 'engineer',
+    name: 'Engineer',
+    icon: 'E',
     color: '#F59E0B',
-    specialty: 'N+1, Caching, Bottlenecks',
+    specialty: 'Fixes, Refactoring, Optimization',
   },
   {
-    id: 'ux',
-    name: 'UX / Accessibility',
-    icon: 'U',
+    id: 'researcher',
+    name: 'Researcher',
+    icon: 'D',
     color: '#A855F7',
-    specialty: 'a11y, i18n, Contrast',
+    specialty: 'Docs, Best Practices, References',
   },
   {
-    id: 'vision',
-    name: 'Vision',
-    icon: 'V',
+    id: 'coordinator',
+    name: 'Coordinator',
+    icon: 'O',
     color: '#EC4899',
-    specialty: 'Design, Visual Consistency, UI',
-  },
-  // ── General Chat Personality Agents ──
-  {
-    id: 'scientist',
-    name: 'Scientist',
-    icon: 'S',
-    color: '#00BFFF',
-    specialty: 'Feynman — explains complex simply',
-  },
-  {
-    id: 'technologist',
-    name: 'Technologist',
-    icon: 'T',
-    color: '#FF6B35',
-    specialty: 'Torvalds — direct, no-BS technical',
-  },
-  {
-    id: 'philosopher',
-    name: 'Philosopher',
-    icon: 'P',
-    color: '#E6A8D7',
-    specialty: 'Socrates — questions everything',
-  },
-  {
-    id: 'historian',
-    name: 'Historian',
-    icon: 'H',
-    color: '#C9B16E',
-    specialty: 'Harari — macro view across time',
-  },
-  {
-    id: 'artist',
-    name: 'Artist',
-    icon: 'A',
-    color: '#FF6B9D',
-    specialty: 'Miyazaki — imaginative, humanistic',
-  },
-  {
-    id: 'psychologist',
-    name: 'Psychologist',
-    icon: 'Y',
-    color: '#9B59B6',
-    specialty: 'Jung — depth psychology, archetypes',
-  },
-  {
-    id: 'strategist',
-    name: 'Strategist',
-    icon: 'W',
-    color: '#2ECC71',
-    specialty: 'Sun Tzu — strategic, sees moves ahead',
-  },
-  {
-    id: 'generalist',
-    name: 'Generalist',
-    icon: 'G',
-    color: '#F1C40F',
-    specialty: 'Franklin — practical wisdom with wit',
+    specialty: 'Orchestration, Synthesis, Escalation',
   },
 ];
 

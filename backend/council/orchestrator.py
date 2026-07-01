@@ -1,7 +1,7 @@
-"""Council orchestrator — runs the 3-round debate + optional negotiation and produces the final report.
+"""Council orchestrator — runs the multi-agent debate and produces the final report.
 
 Flow:
-  1. Round 1: All 6 agents analyse the code independently (parallel).
+  1. Round 1: All core agents analyse the code independently (parallel).
   2. Round 2: Each agent receives the findings from Round 1 and debates (parallel).
   3. Round 3: Each agent receives the debates from Round 2 and refines (parallel).
   4. Synthesis: Consolidates findings, counts votes, determines consensus.
@@ -20,12 +20,12 @@ import uuid
 from datetime import datetime
 from typing import Any, AsyncGenerator
 
-from backend.agents.architecture_agent import ArchitectureAgent
-from backend.agents.performance_agent import PerformanceAgent
-from backend.agents.quality_agent import QualityAgent
-from backend.agents.security_agent import SecurityAgent
-from backend.agents.ux_agent import UXAgent
-from backend.agents.vision_agent import VisionAgent
+from backend.agents.core.coordinator_agent import CoordinatorAgent
+from backend.agents.core.analyst_agent import AnalystAgent
+from backend.agents.core.architect_agent import ArchitectAgent
+from backend.agents.core.engineer_agent import EngineerAgent
+from backend.agents.core.critic_agent import CriticAgent
+from backend.agents.core.researcher_agent import ResearcherAgent
 from backend.config import settings
 from backend.council.synthesizer import synthesize
 from backend.memory.consolidator import Consolidator
@@ -43,12 +43,12 @@ class CouncilOrchestrator:
 
     def __init__(self) -> None:
         self.agents = {
-            "security": SecurityAgent(),
-            "architecture": ArchitectureAgent(),
-            "quality": QualityAgent(),
-            "performance": PerformanceAgent(),
-            "ux": UXAgent(),
-            "vision": VisionAgent(),
+            "coordinator": CoordinatorAgent(),
+            "analyst": AnalystAgent(),
+            "architect": ArchitectAgent(),
+            "engineer": EngineerAgent(),
+            "critic": CriticAgent(),
+            "researcher": ResearcherAgent(),
         }
         self.working_memory = WorkingMemory()
 
@@ -110,7 +110,7 @@ class CouncilOrchestrator:
 
         # Determine agents and rounds based on mode
         if mode == "light":
-            active_agents = {k: self.agents[k] for k in ("security", "architecture", "quality")}
+            active_agents = {k: self.agents[k] for k in ("critic", "analyst", "architect")}
             max_rounds = 2
             logger.info("[%s] Light mode: 3 agents, 2 rounds", session_id)
         else:
@@ -344,7 +344,7 @@ class CouncilOrchestrator:
 
         # Determine agents based on mode
         if mode == "light":
-            active_agents = {k: self.agents[k] for k in ("security", "architecture", "quality")}
+            active_agents = {k: self.agents[k] for k in ("critic", "analyst", "architect")}
             total_rounds = 2
             logger.info("[%s] Light mode (stream): 3 agents, 2 rounds", session_id)
         else:

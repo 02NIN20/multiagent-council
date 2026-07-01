@@ -2,8 +2,8 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import type { ChatMessageData } from '../types';
 import { AGENTS } from '../types';
 
-const REVIEW_AGENTS = AGENTS.slice(0, 6);
-const CHAT_AGENTS = AGENTS.slice(6);
+// All 6 core agents serve both code review and general chat
+const CORE_AGENTS = AGENTS;
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 
@@ -110,38 +110,19 @@ export default function ChatView({ messages, onSubmit, onChatSubmit, disabled, s
                 Multi-agent system with two modes.
               </p>
               <div className="flex flex-col items-center gap-4 w-full max-w-lg mx-auto">
-                {/* Chat Agents */}
+                {/* Agent Society */}
                 <div className="w-full">
                   <p className="text-[10px] text-retro-cyan font-bold uppercase tracking-widest mb-2 text-center">
-                    &gt; CHAT &mdash; 8 personality agents
+                    &gt; AGENT SOCIETY &mdash; 6 role-based agents with sub-agents &amp; tools
                   </p>
                   <div className="flex flex-wrap justify-center gap-1.5 text-xs">
-                    {CHAT_AGENTS.map((agent) => (
+                    {CORE_AGENTS.map((agent) => (
                       <span
                         key={agent.id}
                         className="agent-pill"
                         style={{ borderLeft: `3px solid ${agent.color}` }}
                       >
                         <span style={{ color: agent.color }}>{agent.icon}</span>
-                        <span className="text-gray-400">{agent.name}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Code Review Agents */}
-                <div className="w-full">
-                  <p className="text-[10px] text-retro-cyan font-bold uppercase tracking-widest mb-2 text-center">
-                    &gt; CODE REVIEW &mdash; 6 specialized agents
-                  </p>
-                  <div className="flex flex-wrap justify-center gap-1.5 text-xs">
-                    {REVIEW_AGENTS.map((agent) => (
-                      <span
-                        key={agent.id}
-                        className="agent-pill"
-                        style={{ borderLeft: `3px solid ${agent.color}` }}
-                      >
-                        <span style={{ color: agent.color }}>[{agent.icon}]</span>
                         <span className="text-gray-400">{agent.name}</span>
                       </span>
                     ))}

@@ -102,7 +102,25 @@ async def test_synthesize_separates_dissimilar_findings(mock_gn):
 @pytest.mark.asyncio
 @patch("backend.council.synthesizer._generate_narrative", return_value=_NARRATIVE_MOCK)
 async def test_synthesize_consensus_score_all_agree(mock_gn):
-    """When 5 of 6 agents vote on a finding, consensus score should be 5/6 ~ 0.83."""
+    """Consensus score reflects severity agreement ratio (most common severity / total agents)."""
+    findings = [
+        Finding(agent="security", title="SQL injection", detail="d", impact="Critical", proposal="p", round_num=3),
+        Finding(agent="architecture", title="SQL injection", detail="d", impact="Critical", proposal="p", round_num=3),
+        Finding(agent="quality", title="SQL injection", detail="d", impact="Critical", proposal="p", round_num=3),
+        Finding(agent="performance", title="SQL injection", detail="d", impact="Critical", proposal="p", round_num=3),
+        Finding(agent="ux", title="SQL injection", detail="d", impact="Critical", proposal="p", round_num=3),
+    ]
+    report = await synthesize({3: findings})
+    assert len(report.findings) == 1
+    # 5 agents all agree on Critical severity: 5/6 ≈ 0.83
+    assert report.findings[0].consensus_score == pytest.approx(5 / 6, rel=0.01)
+    assert report.findings[0].consensus_level == "High"
+
+
+@pytest.mark.asyncio
+@patch("backend.council.synthesizer._generate_narrative", return_value=_NARRATIVE_MOCK)
+async def test_synthesize_consensus_score_partial(mock_gn):
+    """When agents disagree on severity, consensus score reflects agreement ratio."""
     findings = [
         Finding(agent="security", title="SQL injection", detail="d", impact="Critical", proposal="p", round_num=3),
         Finding(agent="architecture", title="SQL injection", detail="d", impact="High", proposal="p", round_num=3),
@@ -112,8 +130,9 @@ async def test_synthesize_consensus_score_all_agree(mock_gn):
     ]
     report = await synthesize({3: findings})
     assert len(report.findings) == 1
-    assert report.findings[0].consensus_score == pytest.approx(5 / 6, rel=0.01)
-    assert report.findings[0].consensus_level == "High"
+    # Most common severity (High/Medium) has 2 votes out of 6 agents: 2/6 ≈ 0.33
+    assert report.findings[0].consensus_score == pytest.approx(2 / 6, rel=0.01)
+    assert report.findings[0].consensus_level == "Low"
 
 
 @pytest.mark.asyncio

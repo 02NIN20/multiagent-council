@@ -267,26 +267,29 @@ class BaseAgent(ABC):
             logger.error("[%s] Qwen API key is not set! Cannot call LLM.", self.name)
             return "NO_FINDINGS"
 
-        provider = get_provider()
-        response = await provider.complete(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": self._build_system_prompt()},
-                {"role": "user", "content": user_prompt},
-            ],
-            max_tokens=2048,
-            temperature=0.3,
-        )
+        try:
+            response = await self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": self._build_system_prompt()},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_tokens=2048,
+                temperature=0.3,
+            )
 
-        # Track token usage
-        if response.total_tokens > 0:
-            self._last_token_usage = {
-                "input_tokens": response.input_tokens,
-                "output_tokens": response.output_tokens,
-                "total_tokens": response.total_tokens,
-            }
+            # Track token usage
+            if hasattr(response, 'usage') and response.usage:
+                self._last_token_usage = {
+                    "input_tokens": getattr(response.usage, 'prompt_tokens', 0),
+                    "output_tokens": getattr(response.usage, 'completion_tokens', 0),
+                    "total_tokens": getattr(response.usage, 'total_tokens', 0),
+                }
 
-        return response.content or "NO_FINDINGS"
+            return response.choices[0].message.content or "NO_FINDINGS"
+        except Exception as e:
+            logger.error("[%s] LLM call failed: %s", self.name, str(e))
+            return "NO_FINDINGS"
 
     # ──────────────────────────────────────────────
     #  Response parsing

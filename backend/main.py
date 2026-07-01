@@ -47,15 +47,13 @@ from backend.models.schemas import (
     SessionDetail,
     SessionSummary,
 )
-# Chat agents — personalities for general Q&A
-from backend.agents.scientist_agent import ScientistAgent
-from backend.agents.technologist_agent import TechnologistAgent
-from backend.agents.philosopher_agent import PhilosopherAgent
-from backend.agents.historian_agent import HistorianAgent
-from backend.agents.artist_agent import ArtistAgent
-from backend.agents.psychologist_agent import PsychologistAgent
-from backend.agents.strategist_agent import StrategistAgent
-from backend.agents.generalist_agent import GeneralistAgent
+# Core agents — Agent Society with role-based capabilities
+from backend.agents.core.coordinator_agent import CoordinatorAgent
+from backend.agents.core.analyst_agent import AnalystAgent
+from backend.agents.core.architect_agent import ArchitectAgent
+from backend.agents.core.engineer_agent import EngineerAgent
+from backend.agents.core.critic_agent import CriticAgent
+from backend.agents.core.researcher_agent import ResearcherAgent
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -452,28 +450,28 @@ def _route_question(category: str) -> list[dict[str, object]]:
     """Return the list of (name, agent_instance) pairs for a given category.
 
     Each agent is instantiated fresh so there are no shared state issues.
+    Uses the Agent Society core agents with role-based capabilities.
     """
     agents = {
-        "scientist": ScientistAgent(),
-        "technologist": TechnologistAgent(),
-        "philosopher": PhilosopherAgent(),
-        "historian": HistorianAgent(),
-        "artist": ArtistAgent(),
-        "psychologist": PsychologistAgent(),
-        "strategist": StrategistAgent(),
-        "generalist": GeneralistAgent(),
+        "coordinator": CoordinatorAgent(),
+        "analyst": AnalystAgent(),
+        "architect": ArchitectAgent(),
+        "engineer": EngineerAgent(),
+        "critic": CriticAgent(),
+        "researcher": ResearcherAgent(),
     }
 
-    # Route table: category → which agents to call
+    # Route table: category → which core agents to call
+    # Each agent brings a unique functional perspective
     routes = {
-        "social":     ["generalist"],
-        "science":    ["scientist", "philosopher", "generalist"],
-        "tech":       ["technologist", "strategist", "generalist"],
-        "history":    ["historian", "psychologist", "generalist"],
-        "art":        ["artist", "philosopher", "generalist"],
-        "philosophy": ["philosopher", "psychologist", "scientist"],
-        "strategy":   ["strategist", "psychologist", "generalist"],
-        "general":    ["generalist", "philosopher", "scientist", "technologist", "historian", "artist", "psychologist", "strategist"],
+        "social":     ["coordinator"],
+        "science":    ["analyst", "researcher"],
+        "tech":       ["engineer", "critic", "architect"],
+        "history":    ["researcher", "analyst"],
+        "art":        ["analyst", "researcher"],
+        "philosophy": ["analyst", "coordinator"],
+        "strategy":   ["coordinator", "architect", "analyst"],
+        "general":    ["coordinator", "analyst", "architect", "engineer", "critic", "researcher"],
     }
 
     selected = routes.get(category, routes["general"])
