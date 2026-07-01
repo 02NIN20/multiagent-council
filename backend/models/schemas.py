@@ -89,20 +89,55 @@ class Report(BaseModel):
 #  API request / response models
 # ──────────────────────────────────────────────
 
-
 class FileContent(BaseModel):
     """A source file submitted for review."""
-    filename: str = Field(..., description="File name with extension (e.g. main.py)")
-    content: str = Field(..., min_length=1, max_length=50000, description="File contents")
-    language: str | None = Field(None, description="Detected or declared language")
+
+    filename: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="File name with extension (e.g. main.py)",
+        examples=["main.py", "utils.ts", "config.json"],
+    )
+    content: str = Field(
+        ...,
+        min_length=1,
+        max_length=50000,
+        description="File contents",
+    )
+    language: str | None = Field(
+        None,
+        max_length=20,
+        description="Detected or declared language",
+        examples=["python", "typescript", "json"],
+    )
+
+    @model_validator(mode="after")
+    def _validate_filename(self) -> "FileContent":
+        if "." not in self.filename:
+            raise ValueError(f"Filename must have an extension: {self.filename}")
+        return self
 
 
 class ReviewRequest(BaseModel):
     """POST /api/review payload."""
 
-    code: str | None = Field(None, max_length=50000, description="Source code to review (fallback if no files)")
-    files: list[FileContent] = Field(default_factory=list, max_length=20, description="Multiple source files")
-    session_id: str | None = Field(None, description="Existing session identifier")
+    code: str | None = Field(
+        None,
+        max_length=50000,
+        description="Source code to review (fallback if no files)",
+        examples=["def hello():\n    return 'world'"],
+    )
+    files: list[FileContent] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Multiple source files (up to 20)",
+    )
+    session_id: str | None = Field(
+        None,
+        max_length=64,
+        description="Existing session identifier for follow-up review",
+    )
     image_url: str | None = Field(
         None,
         max_length=50000,
@@ -111,7 +146,8 @@ class ReviewRequest(BaseModel):
     instruction: str | None = Field(
         None,
         max_length=2000,
-        description="Optional natural-language instruction for the council (e.g. 'Focus on security')",
+        description="Optional natural-language instruction for the council",
+        examples=["Focus on security vulnerabilities", "Check for performance issues"],
     )
 
     @model_validator(mode="after")
@@ -133,10 +169,29 @@ class ReviewResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     """POST /api/chat payload for general multi-agent chat."""
-    message: str = Field(..., min_length=1, max_length=4000, description="User question or message")
-    session_id: str | None = Field(None, description="Optional session for context")
-    context: str | None = Field(None, max_length=20000, description="Additional context")
-    files: list[FileContent] = Field(default_factory=list, max_length=20, description="Optional files for context")
+
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=4000,
+        description="User question or message",
+        examples=["What is SOLID?", "Explain quantum computing", "Write a poem about nature"],
+    )
+    session_id: str | None = Field(
+        None,
+        max_length=64,
+        description="Optional session ID for conversation context",
+    )
+    context: str | None = Field(
+        None,
+        max_length=20000,
+        description="Additional context (e.g., code review findings for follow-up questions)",
+    )
+    files: list[FileContent] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Optional files for context",
+    )
 
 
 class AgentContribution(BaseModel):
