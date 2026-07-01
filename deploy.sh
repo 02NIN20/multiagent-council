@@ -46,7 +46,7 @@ if [[ ! -f .env ]]; then
 fi
 
 # Strip Windows CRLF from .env if present, then source
-if grep -rl $'\r' .env &>/dev/null; then
+if grep -l $'\r' .env &>/dev/null 2>&1; then
     log_warn ".env contains Windows CRLF line endings — stripping carriage returns"
     sed -i 's/\r$//' .env
 fi
