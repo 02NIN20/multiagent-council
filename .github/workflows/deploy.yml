@@ -41,15 +41,19 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+      # Auto-deploy is DISABLED by default (if: false). To enable:
+      #   1. Add ECS_HOST, ECS_USER, ECS_SSH_KEY secrets in GitHub repo Settings > Secrets
+      #   2. Change 'if: false' to 'if: success()'
       - name: Deploy to Alibaba ECS via SSH
+        if: false
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.ECS_HOST }}
           username: ${{ secrets.ECS_USER }}
           key: ${{ secrets.ECS_SSH_KEY }}
           script: |
-            cd /opt/qwen-council
-            docker pull ${{ steps.meta.outputs.tags }}
-            docker compose down
-            docker compose up -d
+            cd /root/qwen-council
+            git pull origin main
+            docker compose pull
+            docker compose up -d --remove-orphans
             docker image prune -f
