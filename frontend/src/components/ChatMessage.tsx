@@ -300,6 +300,17 @@ function FindingView({ message }: { message: FindingMessage }) {
 
 function TokenUsageBadge({ usage }: { usage: TokenUsage }) {
   const [open, setOpen] = useState(false);
+  const totalTokens = usage.total_tokens ?? 0;
+  const cost = usage.estimated_cost_usd ?? 0;
+  const inputTokens = usage.total_input_tokens ?? 0;
+  const outputTokens = usage.total_output_tokens ?? 0;
+  const model = usage.model ?? 'unknown';
+  const budget = usage.budget;
+  const maxInput = budget?.config?.max_input_tokens ?? 0;
+  const maxOutput = budget?.config?.max_output_tokens ?? 0;
+  const maxCost = budget?.config?.max_cost_usd ?? 0;
+  const perCall = budget?.per_call ?? [];
+
   return (
     <div className="border border-retro-border mb-3">
       <button
@@ -307,7 +318,7 @@ function TokenUsageBadge({ usage }: { usage: TokenUsage }) {
         className="w-full flex items-center justify-between gap-2 px-3 py-2 text-[10px] font-bold text-gray-500 hover:text-retro-cyan hover:bg-retro-bg transition-colors uppercase tracking-wider"
         aria-expanded={open}
       >
-        <span>&gt; TOKEN USAGE &mdash; {usage.total_tokens.toLocaleString()} tokens &middot; ${usage.estimated_cost_usd.toFixed(2)}</span>
+        <span>&gt; TOKEN USAGE &mdash; {totalTokens.toLocaleString()} tokens &middot; ${cost.toFixed(2)}</span>
         <svg className={`w-3 h-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
@@ -316,47 +327,47 @@ function TokenUsageBadge({ usage }: { usage: TokenUsage }) {
         <div className="px-3 pb-3 border-t border-retro-border pt-2 space-y-2 text-[11px] font-mono">
           <div className="flex justify-between text-gray-500">
             <span>Model</span>
-            <span className="text-gray-300">{usage.model}</span>
+            <span className="text-gray-300">{model}</span>
           </div>
           <div className="flex justify-between text-gray-500">
             <span>Total input</span>
-            <span className="text-gray-300">{usage.total_input_tokens.toLocaleString()}</span>
+            <span className="text-gray-300">{inputTokens.toLocaleString()}</span>
           </div>
           <div className="flex justify-between text-gray-500">
             <span>Total output</span>
-            <span className="text-gray-300">{usage.total_output_tokens.toLocaleString()}</span>
+            <span className="text-gray-300">{outputTokens.toLocaleString()}</span>
           </div>
           <div className="flex justify-between text-gray-500">
             <span>Estimated cost</span>
-            <span className="text-retro-cyan">${usage.estimated_cost_usd.toFixed(2)}</span>
+            <span className="text-retro-cyan">${cost.toFixed(2)}</span>
           </div>
-          {usage.budget && (
+          {budget && (
             <>
               <div className="border-t border-retro-border pt-1 mt-1">
                 <p className="text-[10px] text-retro-cyan font-bold uppercase tracking-wider mb-1">Budget</p>
                 <div className="flex justify-between text-gray-500">
                   <span>Max input</span>
-                  <span className="text-gray-300">{usage.budget.config.max_input_tokens.toLocaleString()}</span>
+                  <span className="text-gray-300">{maxInput.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-gray-500">
                   <span>Max output</span>
-                  <span className="text-gray-300">{usage.budget.config.max_output_tokens.toLocaleString()}</span>
+                  <span className="text-gray-300">{maxOutput.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-gray-500">
                   <span>Max cost</span>
-                  <span className="text-gray-300">${usage.budget.config.max_cost_usd.toFixed(2)}</span>
+                  <span className="text-gray-300">${maxCost.toFixed(2)}</span>
                 </div>
-                {usage.budget.exhausted && (
+                {budget.exhausted && (
                   <p className="text-retro-red text-[10px] mt-1">Budget exhausted</p>
                 )}
               </div>
-              {usage.budget.per_call.length > 0 && (
+              {perCall.length > 0 && (
                 <div className="border-t border-retro-border pt-1 mt-1">
                   <p className="text-[10px] text-retro-cyan font-bold uppercase tracking-wider mb-1">Per-call breakdown</p>
-                  {usage.budget.per_call.map((call, i) => (
+                  {perCall.map((call, i) => (
                     <div key={i} className="flex justify-between text-gray-500 text-[10px]">
                       <span>{call.label}</span>
-                      <span className="text-gray-400">{call.input_tokens + call.output_tokens} tok / ${call.cost_usd.toFixed(4)}</span>
+                      <span className="text-gray-400">{(call.input_tokens ?? 0) + (call.output_tokens ?? 0)} tok / ${(call.cost_usd ?? 0).toFixed(4)}</span>
                     </div>
                   ))}
                 </div>

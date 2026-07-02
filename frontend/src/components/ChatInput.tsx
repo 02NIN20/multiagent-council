@@ -249,7 +249,9 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled, followUpMo
         content: img.content,
         mime_type: img.mime_type,
       }));
-      onChatSubmit?.(messageText, undefined, imagePayload);
+      // Backend requires non-empty message — provide default if user didn't type text
+      const msg = messageText || 'Analyze this image';
+      onChatSubmit?.(msg, undefined, imagePayload);
       setImages([]);
       setChatText('');
       return;
