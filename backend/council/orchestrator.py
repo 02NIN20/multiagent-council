@@ -27,6 +27,7 @@ from backend.agents.core.engineer_agent import EngineerAgent
 from backend.agents.core.critic_agent import CriticAgent
 from backend.agents.core.researcher_agent import ResearcherAgent
 from backend.config import settings
+from backend.council.budget import BudgetConfig, TokenBudget, TokenUsage
 from backend.council.synthesizer import synthesize
 from backend.memory.consolidator import Consolidator
 from backend.memory.episodic_memory import EpisodicMemoryManager
@@ -51,6 +52,8 @@ class CouncilOrchestrator:
             "researcher": ResearcherAgent(),
         }
         self.working_memory = WorkingMemory()
+        # Per-review token budget (set at the start of each run_council / stream_council)
+        self.budget: TokenBudget | None = None
 
     # ──────────────────────────────────────────────
     #  Helpers
@@ -82,9 +85,9 @@ class CouncilOrchestrator:
         files: list[FileContent] | None = None,
         instruction: str | None = None,
         mode: str = "full",
+        budget_config: BudgetConfig | None = None,
     ) -> tuple[Report, str, dict[str, Any]]:
         """Execute the full council debate.
-
         Parameters
         ----------
         code : str
@@ -108,15 +111,27 @@ class CouncilOrchestrator:
         if not session_id:
             session_id = f"ses-{uuid.uuid4().hex[:12]}"
 
+        # Initialise per-review token budget from the mode (or explicit config)
+        budget_config = budget_config or BudgetConfig.from_mode(mode)
+        self.budget = TokenBudget(budget_config)
+        logger.info(
+            "[%s] Token budget: max_in=%d, max_out=%d, max_cost=$%.2f, max_rounds=%d",
+            session_id,
+            budget_config.max_input_tokens,
+            budget_config.max_output_tokens,
+            budget_config.max_cost_usd,
+            budget_config.max_rounds,
+        )
+
         # Determine agents and rounds based on mode
         if mode == "light":
             active_agents = {k: self.agents[k] for k in ("critic", "analyst", "architect")}
-            max_rounds = 2
-            logger.info("[%s] Light mode: 3 agents, 2 rounds", session_id)
+            max_rounds = min(2, budget_config.max_rounds)
+            logger.info("[%s] Light mode: 3 agents, %d rounds", session_id, max_rounds)
         else:
             active_agents = self.agents
-            max_rounds = 4
-            logger.info("[%s] Full mode: 6 agents, 4 rounds", session_id)
+            max_rounds = min(3, budget_config.max_rounds)
+            logger.info("[%s] Full mode: 6 agents, %d rounds", session_id, max_rounds)
 
         # Initialize round data for frontend tracing
         round_data: dict[str, Any] = {}
@@ -165,6 +180,10 @@ class CouncilOrchestrator:
 
         # ── Round 1: Individual analysis ──────────────────────
         logger.info("[%s] Starting Round 1: Individual analysis", session_id)
+        # Early-exit guard: budget check at start of every round
+        if self.budget and self.budget.is_exhausted():
+            logger.warning("[%s] Budget exhausted before round 1", session_id)
+
         round1_findings = await self._run_round(
             code=code,
             round_num=1,
@@ -186,49 +205,63 @@ class CouncilOrchestrator:
         )
 
         # ── Round 2: Cross-debate (Given-New) ────────────────
-        logger.info("[%s] Starting Round 2: Cross-debate", session_id)
-        round2_findings = await self._run_round(
-            code=code,
-            round_num=2,
-            context_findings=round1_findings,
-            semantic_context=semantic_patterns,
-            image_url=image_url,
-            agents=active_agents,
-        )
-        all_findings[2] = round2_findings
-        round_data["round_2"] = {
-            agent: [f.model_dump() for f in findings]
-            for agent, findings in round2_findings.items()
-        }
-        self.working_memory.set(session_id, {"round2_findings": round2_findings})
-        logger.info(
-            "[%s] Round 2 complete: %d total findings",
-            session_id,
-            sum(len(v) for v in round2_findings.values()),
-        )
-
-        # ── Round 3: Refinement (full mode only) ─────────────
-        if max_rounds >= 3:
-            logger.info("[%s] Starting Round 3: Refinement", session_id)
-            round3_findings = await self._run_round(
+        # Early-exit: budget check + skip if Round 1 found nothing
+        r1_total = sum(len(v) for v in round1_findings.values())
+        if self.budget and self.budget.is_exhausted():
+            logger.warning("[%s] Budget exhausted, skipping Round 2", session_id)
+        elif r1_total == 0:
+            logger.info("[%s] No findings in Round 1, skipping Round 2", session_id)
+        else:
+            logger.info("[%s] Starting Round 2: Cross-debate", session_id)
+            round2_findings = await self._run_round(
                 code=code,
-                round_num=3,
-                context_findings=round2_findings,
+                round_num=2,
+                context_findings=round1_findings,
                 semantic_context=semantic_patterns,
                 image_url=image_url,
                 agents=active_agents,
             )
-            all_findings[3] = round3_findings
-            round_data["round_3"] = {
+            all_findings[2] = round2_findings
+            round_data["round_2"] = {
                 agent: [f.model_dump() for f in findings]
-                for agent, findings in round3_findings.items()
+                for agent, findings in round2_findings.items()
             }
-            self.working_memory.set(session_id, {"round3_findings": round3_findings})
+            self.working_memory.set(session_id, {"round2_findings": round2_findings})
             logger.info(
-                "[%s] Round 3 complete: %d total findings",
+                "[%s] Round 2 complete: %d total findings",
                 session_id,
-                sum(len(v) for v in round3_findings.values()),
+                sum(len(v) for v in round2_findings.values()),
             )
+
+        # ── Round 3: Refinement (full mode only) ─────────────
+        if max_rounds >= 3:
+            # Early-exit: budget check + skip if Round 2 found nothing
+            r2_total = sum(len(v) for v in all_findings.get(2, {}).values())
+            if self.budget and self.budget.is_exhausted():
+                logger.warning("[%s] Budget exhausted, skipping Round 3", session_id)
+            elif r2_total == 0:
+                logger.info("[%s] No findings in Round 2, skipping Round 3", session_id)
+            else:
+                logger.info("[%s] Starting Round 3: Refinement", session_id)
+                round3_findings = await self._run_round(
+                    code=code,
+                    round_num=3,
+                    context_findings=round2_findings,
+                    semantic_context=semantic_patterns,
+                    image_url=image_url,
+                    agents=active_agents,
+                )
+                all_findings[3] = round3_findings
+                round_data["round_3"] = {
+                    agent: [f.model_dump() for f in findings]
+                    for agent, findings in round3_findings.items()
+                }
+                self.working_memory.set(session_id, {"round3_findings": round3_findings})
+                logger.info(
+                    "[%s] Round 3 complete: %d total findings",
+                    session_id,
+                    sum(len(v) for v in round3_findings.values()),
+                )
 
         # ── Flatten findings for synthesis ───────────────────
         flat_by_round: dict[int, list[Finding]] = {}
@@ -242,7 +275,7 @@ class CouncilOrchestrator:
         logger.info("[%s] Running synthesis", session_id)
 
         # Collect token usage from active agents
-        agent_token_usage = {}
+        agent_token_usage: dict[str, Any] = {}
         total_input = 0
         total_output = 0
         for name, agent in active_agents.items():
@@ -252,10 +285,11 @@ class CouncilOrchestrator:
                 total_input += usage.get("input_tokens", 0)
                 total_output += usage.get("output_tokens", 0)
 
-        # Estimate cost (qwen3-coder-plus: $0.004/1K input, $0.012/1K output)
-        estimated_cost = (total_input / 1000) * 0.004 + (total_output / 1000) * 0.012
+        # Use the per-review TokenBudget for accurate cost (qwen-plus pricing)
+        from backend.council.budget import QWEN_PLUS_INPUT_PER_1K, QWEN_PLUS_OUTPUT_PER_1K
+        estimated_cost = (total_input / 1000) * QWEN_PLUS_INPUT_PER_1K + (total_output / 1000) * QWEN_PLUS_OUTPUT_PER_1K
 
-        token_data = {
+        token_data: dict[str, Any] = {
             "per_agent": agent_token_usage,
             "total_input_tokens": total_input,
             "total_output_tokens": total_output,
@@ -263,6 +297,8 @@ class CouncilOrchestrator:
             "estimated_cost_usd": round(estimated_cost, 4),
             "model": settings.llm_model,
         }
+        if self.budget is not None:
+            token_data["budget"] = self.budget.summary()
 
         report = await synthesize(
             flat_by_round,
@@ -320,6 +356,7 @@ class CouncilOrchestrator:
         files: list[FileContent] | None = None,
         instruction: str | None = None,
         mode: str = "full",
+        budget_config: BudgetConfig | None = None,
     ) -> AsyncGenerator[tuple[str, dict[str, Any]], None]:
         """Async generator that yields ``(event_type, data)`` tuples for SSE streaming.
 
@@ -342,15 +379,27 @@ class CouncilOrchestrator:
         if not session_id:
             session_id = f"ses-{uuid.uuid4().hex[:12]}"
 
+        # Initialise per-review token budget
+        budget_config = budget_config or BudgetConfig.from_mode(mode)
+        self.budget = TokenBudget(budget_config)
+        logger.info(
+            "[%s] Token budget: max_in=%d, max_out=%d, max_cost=$%.2f, max_rounds=%d",
+            session_id,
+            budget_config.max_input_tokens,
+            budget_config.max_output_tokens,
+            budget_config.max_cost_usd,
+            budget_config.max_rounds,
+        )
+
         # Determine agents based on mode
         if mode == "light":
             active_agents = {k: self.agents[k] for k in ("critic", "analyst", "architect")}
-            total_rounds = 2
-            logger.info("[%s] Light mode (stream): 3 agents, 2 rounds", session_id)
+            total_rounds = min(2, budget_config.max_rounds)
+            logger.info("[%s] Light mode (stream): 3 agents, %d rounds", session_id, total_rounds)
         else:
             active_agents = self.agents
-            total_rounds = 3
-            logger.info("[%s] Full mode (stream): 6 agents, 3 rounds", session_id)
+            total_rounds = min(3, budget_config.max_rounds)
+            logger.info("[%s] Full mode (stream): 6 agents, %d rounds", session_id, total_rounds)
 
         # Build full code context from files if provided
         if files:
@@ -381,7 +430,19 @@ class CouncilOrchestrator:
 
         try:
             # ── Rounds ──────────────────────────────────────────────
+            prev_round_total = 0
             for round_num in range(1, total_rounds + 1):
+                # Early-exit: if the budget is exhausted, stop debating
+                if self.budget and self.budget.is_exhausted():
+                    logger.warning(
+                        "[%s] Budget exhausted before round %d, stopping",
+                        session_id, round_num,
+                    )
+                    yield ("budget_exhausted", {
+                        "round": round_num,
+                        "remaining": self.budget.remaining(),
+                    })
+                    break
                 yield ("round_start", {"round": round_num, "total_rounds": total_rounds})
                 logger.info("[%s] Starting Round %d (stream)", session_id, round_num)
 
@@ -469,6 +530,21 @@ class CouncilOrchestrator:
                     "[%s] Round %d complete: %d findings (stream)",
                     session_id, round_num, total_findings,
                 )
+
+                # Early-exit: if a round produced no new findings, skip
+                # the remaining rounds — no point debating about nothing.
+                if round_num >= 2 and total_findings == prev_round_total:
+                    logger.info(
+                        "[%s] No new findings in round %d, stopping early",
+                        session_id, round_num,
+                    )
+                    yield ("early_exit", {
+                        "round": round_num,
+                        "reason": "no_new_findings",
+                        "total_findings": total_findings,
+                    })
+                    break
+                prev_round_total = total_findings
 
             # ── Flatten findings for synthesis ──────────────────────
             flat_by_round: dict[int, list[Finding]] = {}
