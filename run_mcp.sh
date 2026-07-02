@@ -1,18 +1,18 @@
 #!/bin/bash
 # =============================================================================
-# Qwen Council — MCP Server Launcher
+# Multi-Agent Council — MCP Server Launcher
 # =============================================================================
 # Usage:
 #   Export QWEN_COUNCIL_API_URL or leave default (http://localhost:8000)
 #   Then run: bash run_mcp.sh
 #
 # For OpenCode / Claude Desktop / Cursor:
-#   Add this to your opencode.json:
+#   Add this to your opencode.json (or ~/.config/opencode/opencode.jsonc):
 #   {
-#     "mcpServers": {
-#       "qwen-council": {
-#         "command": "bash",
-#         "args": ["/path/to/qwen-council/run_mcp.sh"]
+#     "mcp": {
+#       "multiagent-council": {
+#         "type": "local",
+#         "command": ["bash", "/path/to/multiagent-council/run_mcp.sh"]
 #       }
 #     }
 #   }
@@ -28,7 +28,7 @@ export QWEN_COUNCIL_API_URL="${QWEN_COUNCIL_API_URL:-http://localhost:8000}"
 # Ensure Python can find the backend module
 export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
 
-echo "Qwen Council MCP Server" >&2
+echo "Multi-Agent Council MCP Server" >&2
 echo "  API: $QWEN_COUNCIL_API_URL" >&2
 echo "  CWD: $SCRIPT_DIR" >&2
 

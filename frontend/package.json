@@ -1,5 +1,5 @@
 {
-  "name": "qwen-council-frontend",
+  "name": "multiagent-council-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",

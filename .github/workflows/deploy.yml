@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: qwen-council
+  IMAGE_NAME: multiagent-council
 
 jobs:
   build-and-push:
@@ -49,7 +49,7 @@ jobs:
           username: ${{ secrets.ECS_USER }}
           key: ${{ secrets.ECS_SSH_KEY }}
           script: |
-            cd /root/qwen-council
+            cd /root/multiagent-council
             git pull origin main
             docker compose pull
             docker compose up -d --remove-orphans

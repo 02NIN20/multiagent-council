@@ -28,7 +28,7 @@ class Settings(BaseSettings):
         self.llm_model = self.llm_model.strip()
 
     # ── Database ────────────────────────────────────────────────────
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/qwen_council"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/multiagent_council"
     database_echo: bool = False
 
     # ── Redis (optional) ────────────────────────────────────────────

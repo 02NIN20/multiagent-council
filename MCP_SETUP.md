@@ -15,8 +15,8 @@ Connect the Agent Society to any MCP-compatible client:
 pip install mcp httpx openai
 
 # Clone the repo
-git clone https://github.com/02NIN20/qwen-council.git
-cd qwen-council
+git clone https://github.com/02NIN20/multiagent-council.git
+cd multiagent-council
 ```
 
 ### 2. Add to OpenCode config
@@ -26,16 +26,16 @@ Add to `~/.config/opencode/opencode.jsonc`:
 ```json
 {
   "mcp": {
-    "qwen-council": {
+    "multiagent-council": {
       "type": "local",
-      "command": ["bash", "/ABSOLUTE/PATH/to/qwen-council/run_mcp.sh"],
+      "command": ["bash", "/ABSOLUTE/PATH/to/multiagent-council/run_mcp.sh"],
       "enabled": true
     }
   }
 }
 ```
 
-Replace `/ABSOLUTE/PATH/to/qwen-council/` with the actual path.
+Replace `/ABSOLUTE/PATH/to/multiagent-council/` with the actual path.
 
 ### 3. Configure the API URL
 
@@ -48,7 +48,7 @@ export QWEN_COUNCIL_API_URL=http://your-server:8000
 
 ### 4. Restart OpenCode
 
-Close and reopen OpenCode. The `qwen-council` MCP server should appear.
+Close and reopen OpenCode. The `multiagent-council` MCP server should appear.
 
 ## Available Tools
 

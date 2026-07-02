@@ -110,8 +110,8 @@ For a detailed breakdown, see `benchmark_results.md`.
 ### 1. Clone & Setup
 
 ```bash
-git clone https://github.com/02NIN20/qwen-council.git
-cd qwen-council
+git clone https://github.com/02NIN20/multiagent-council.git
+cd multiagent-council
 
 # Backend
 pip install -r backend/requirements.txt
@@ -225,9 +225,9 @@ Expose the Agent Society as tools for **OpenCode**, **Claude Desktop**, **Cursor
 # 1. Add to ~/.config/opencode/opencode.jsonc:
 {
   "mcp": {
-    "qwen-council": {
+    "multiagent-council": {
       "type": "local",
-      "command": ["bash", "/path/to/qwen-council/run_mcp.sh"],
+      "command": ["bash", "/path/to/multiagent-council/run_mcp.sh"],
       "enabled": true
     }
   }
@@ -258,7 +258,7 @@ See `MCP_SETUP.md` for detailed instructions.
 QWEN_COUNCIL_API_URL=http://localhost:8000 python3 -m backend.mcp_server
 ```
       "args": ["-m", "backend.mcp_server"],
-      "cwd": "/path/to/qwen-council",
+      "cwd": "/path/to/multiagent-council",
       "env": { "QWEN_COUNCIL_API_URL": "http://localhost:8000" }
     }
   }
@@ -367,8 +367,8 @@ Full results: `benchmark_results.md`
 
 ```bash
 ssh root@your-ecs-ip
-git clone https://github.com/02NIN20/qwen-council.git
-cd qwen-council
+git clone https://github.com/02NIN20/multiagent-council.git
+cd multiagent-council
 cp .env.example .env
 nano .env   # Set llm_api_key, llm_base_url, llm_model
 sudo bash deploy.sh

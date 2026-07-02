@@ -60,9 +60,9 @@ llm_provider=qwen
 ```bash
 $ docker ps
 NAMES                       IMAGE                       STATUS
-qwen-council-frontend-1     qwen-council-frontend       Up (healthy)
-qwen-council-backend-1      qwen-council-backend        Up (healthy)
-qwen-council-db-1           pgvector/pgvector:pg15      Up (healthy)
+multiagent-council-frontend-1     multiagent-council-frontend       Up (healthy)
+multiagent-council-backend-1      multiagent-council-backend        Up (healthy)
+multiagent-council-db-1           pgvector/pgvector:pg15      Up (healthy)
 ```
 
 **3 containers** running:

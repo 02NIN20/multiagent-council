@@ -144,7 +144,7 @@ FINDINGS:
 ## 6. Repository Structure
 
 ```
-qwen-council/
+multiagent-council/
 ├── README.md
 ├── LICENSE
 ├── requirements.txt

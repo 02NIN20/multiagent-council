@@ -74,4 +74,4 @@ Full deployment details: [alibaba-cloud-deployment.md](alibaba-cloud-deployment.
 
 ## Source Code
 
-Full repository: [github.com/02NIN20/qwen-council](https://github.com/02NIN20/qwen-council)
+Full repository: [github.com/02NIN20/multiagent-council](https://github.com/02NIN20/multiagent-council)

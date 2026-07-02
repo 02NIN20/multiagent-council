@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Qwen Council CLI — interact with the council from the terminal.
+"""Multi-Agent Council CLI — interact with the council from the terminal.
 
 Usage:
-    qwen-council review main.py
-    qwen-council chat "What is SOLID?"
-    qwen-council sessions
-    qwen-council setup
+    multiagent-council review main.py
+    multiagent-council chat "What is SOLID?"
+    multiagent-council sessions
+    multiagent-council setup
 
 Environment:
     QWEN_COUNCIL_URL  — API base URL (default: http://localhost:8000)
@@ -30,12 +30,12 @@ except ImportError:
 
 
 DEFAULT_URL = os.environ.get("QWEN_COUNCIL_URL", "http://localhost:8000")
-CONFIG_DIR = Path.home() / ".qwen-council"
+CONFIG_DIR = Path.home() / ".multiagent-council"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
 def load_config() -> dict:
-    """Load CLI configuration from ~/.qwen-council/config.json."""
+    """Load CLI configuration from ~/.multiagent-council/config.json."""
     if CONFIG_FILE.exists():
         with open(CONFIG_FILE) as f:
             return json.load(f)
@@ -237,16 +237,16 @@ def cmd_setup(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="qwen-council",
-        description="Qwen Council CLI — multi-agent code review and chat",
+        prog="multiagent-council",
+        description="Multi-Agent Council CLI — multi-agent code review and chat",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
             Examples:
-              qwen-council review main.py
-              qwen-council review main.py utils.py --instruction "Focus on security"
-              qwen-council chat "What is the meaning of life?"
-              qwen-council sessions
-              qwen-council setup
+              multiagent-council review main.py
+              multiagent-council review main.py utils.py --instruction "Focus on security"
+              multiagent-council chat "What is the meaning of life?"
+              multiagent-council sessions
+              multiagent-council setup
         """),
     )
 

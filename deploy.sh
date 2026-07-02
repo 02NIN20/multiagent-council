@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  deploy.sh — Qwen Council Deployment Script for Alibaba Cloud ECS
+#  deploy.sh — Multi-Agent Council Deployment Script for Alibaba Cloud ECS
 # =============================================================================
 #  Usage:
 #    1. SSH into your Alibaba ECS instance
-#    2. Clone the repo:  git clone https://github.com/02NIN20/qwen-council.git
-#    3. cd qwen-council
+#    2. Clone the repo:  git clone https://github.com/02NIN20/multiagent-council.git
+#    3. cd multiagent-council
 #    4. Create .env with your LLM API key (see .env.example)
 #    5. Run:  sudo bash deploy.sh
 #

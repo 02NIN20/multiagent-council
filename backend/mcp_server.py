@@ -28,7 +28,7 @@ from mcp.server.fastmcp import FastMCP
 logger = logging.getLogger(__name__)
 
 API_BASE_URL = os.environ.get("QWEN_COUNCIL_API_URL", "http://localhost:8000")
-server = FastMCP("qwen-council")
+server = FastMCP("multiagent-council")
 
 
 # ── API helpers ──────────────────────────────────────────────────
