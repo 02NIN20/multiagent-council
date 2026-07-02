@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
-LABEL maintainer="Qwen Council Team"
-LABEL description="Qwen Council — Multi-agent code review with memory"
+LABEL maintainer="Multi-Agent Council Team"
+LABEL description="Multi-Agent Council — Agent Society for code review and analysis"
 
 # Prevent Python from writing .pyc files and enable unbuffered logging
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -17,8 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-web.txt .
+RUN pip install --no-cache-dir -r requirements-web.txt
 
 # Copy backend code into /app/backend/ so "from backend.X import Y" works
 COPY ./ ./backend/
