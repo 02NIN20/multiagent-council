@@ -224,6 +224,6 @@ class AnalystAgent(BaseAgent):
         }
 
     async def answer_question(
-        self, question: str, context: str | None = None
+        self, question: str, context: str | None = None, content_type: str = "general"
     ) -> str:
-        return await super().answer_question(question, context)
+        return await super().answer_question(question, context, content_type=content_type)
