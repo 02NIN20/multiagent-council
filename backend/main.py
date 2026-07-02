@@ -698,8 +698,9 @@ async def chat_general(
         async def ask_agent(name: str, agent: object) -> dict:
             """Call a single agent's answer_question and return its contribution.
 
-            Image data is injected into *agent_context* for all agents
-            (no separate \"vision\" agent needed).
+            If images are present, they are passed directly to the LLM as
+            multimodal content (``qwen-vl-plus``) for vision-capable analysis,
+            in addition to the text description in agent_context.
             """
             try:
                 # Pass content_type so the agent adapts its response style
@@ -708,6 +709,7 @@ async def chat_general(
                     question=payload.message,
                     context=agent_context if agent_context else None,
                     content_type=ct,
+                    images=payload.images if payload.images else None,
                 )
                 return {
                     "agent": name,

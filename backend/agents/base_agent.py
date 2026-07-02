@@ -207,6 +207,7 @@ class BaseAgent(ABC):
         context: str | None = None,
         max_tokens: int = 1024,
         content_type: str = "general",
+        images: list[dict[str, str]] | None = None,
     ) -> str:
         """Answer ANY question from this agent's unique perspective.
 
@@ -224,6 +225,10 @@ class BaseAgent(ABC):
         content_type : str
             Type of content being discussed: "code", "math", "research", "text", "markdown".
             Default "general" (code-focused).
+        images : list[dict] | None
+            Optional list of image dicts with keys: filename, content (base64),
+            mime_type. Passed directly to the LLM as multimodal content if
+            the model supports it (``qwen-vl-plus``).
         """
         domain_prompts = {
             "science": "Your domain is SCIENCE and NATURE. Only answer questions about physics, biology, chemistry, astronomy, or the natural world. For history, art, philosophy, or social topics, respond: 'That is outside my domain — the Historian or Generalist would be better suited.'",
@@ -260,23 +265,8 @@ class BaseAgent(ABC):
         if context:
             user_content += f"\n### Context:\n{context}\n"
 
-        response = await self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_content},
-            ],
-            temperature=0.2,
-            max_tokens=max_tokens,
-        )
-        # Track token usage
-        if hasattr(response, 'usage') and response.usage:
-            self._last_token_usage = {
-                "input_tokens": response.usage.prompt_tokens,
-                "output_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens,
-            }
-        return response.choices[0].message.content or "OUT_OF_SCOPE"
+        # Use _call_llm so multimodal images work automatically
+        return await self._call_llm(user_content, images=images, system_prompt=system_prompt, max_tokens=max_tokens)
 
     def get_token_usage(self) -> dict[str, int]:
         """Return token usage from the last LLM call."""
@@ -286,8 +276,29 @@ class BaseAgent(ABC):
     #  LLM call
     # ──────────────────────────────────────────────
 
-    async def _call_llm(self, user_prompt: str) -> str:
+    async def _call_llm(
+        self,
+        user_prompt: str,
+        images: list[dict[str, str]] | None = None,
+        system_prompt: str | None = None,
+        max_tokens: int = 2048,
+    ) -> str:
         """Send a chat completion request via the LLM provider.
+
+        Parameters
+        ----------
+        user_prompt : str
+            The text prompt to send.
+        images : list[dict] | None
+            Optional list of image dicts with keys: filename, content (base64),
+            mime_type. When provided, the message content becomes a multimodal
+            array (text + image_url) and the model switches to a vision-capable
+            model (``qwen-vl-plus``) automatically.
+        system_prompt : str | None
+            Custom system prompt. If None, uses the agent's default
+            ``_build_system_prompt()`` (code-review oriented).
+        max_tokens : int
+            Maximum tokens for the response. Default 2048 (4096 with images).
 
         On error, returns ``"LLM_ERROR: <details>"`` instead of silently
         returning ``"NO_FINDINGS"`` so callers and the frontend can
@@ -302,13 +313,35 @@ class BaseAgent(ABC):
             return "LLM_ERROR: API key not configured"
 
         try:
-            response = await self._client.chat.completions.create(
-                model=self._model,
-                messages=[
-                    {"role": "system", "content": self._build_system_prompt()},
+            # Determine system prompt
+            sp = system_prompt if system_prompt is not None else self._build_system_prompt()
+            # Build user message — text-only or multimodal
+            if images:
+                model = "qwen-vl-plus"
+                content: list[dict] = [{"type": "text", "text": user_prompt}]
+                for img in images:
+                    data_url = f"data:{img['mime_type']};base64,{img['content']}"
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": data_url},
+                    })
+                messages = [
+                    {"role": "system", "content": sp},
+                    {"role": "user", "content": content},
+                ]
+                effective_max = max(max_tokens, 4096)
+            else:
+                model = self._model
+                messages = [
+                    {"role": "system", "content": sp},
                     {"role": "user", "content": user_prompt},
-                ],
-                max_tokens=2048,
+                ]
+                effective_max = max_tokens
+
+            response = await self._client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=effective_max,
                 temperature=0.3,
             )
 
