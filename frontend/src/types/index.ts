@@ -74,10 +74,13 @@ export interface ReviewResponse {
 
 export interface SessionDetail {
   id: string;
-  code_preview: string;
-  finding_count: number;
+  /** Full code content (detail endpoint returns 'code', not 'code_preview') */
+  code: string;
   findings_json: any;
+  /** Relevance score */
+  score: number;
   created_at: string;
+  last_referenced_at?: string;
 }
 
 export interface SessionSummary {

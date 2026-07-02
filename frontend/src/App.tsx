@@ -98,7 +98,7 @@ export default function App() {
         const userMsg: ChatMessageData = {
           id: uid(),
           role: 'user',
-          content: session.code_preview?.slice(0, 100) || 'Code review',
+          content: session.code?.slice(0, 100) || 'Code review',
           code: '',
           timestamp: Date.now(),
         };
@@ -137,6 +137,7 @@ export default function App() {
    */
   const handleStreamComplete = useCallback(
     (sessionId: string, report: Report) => {
+      streamPayloadRef.current = null; // Clear to prevent stale payload on subsequent chats
       setActiveSessionId(sessionId);
       const reportMsg: ChatMessageData = {
         id: uid(),
@@ -155,6 +156,7 @@ export default function App() {
    * Called by LiveCouncilStatus when the SSE stream errors.
    */
   const handleStreamError = useCallback((error: string) => {
+    streamPayloadRef.current = null; // Clear to prevent stale payload on subsequent chats
     const errorMsg: ChatMessageData = {
       id: uid(),
       role: 'error',
