@@ -6,7 +6,7 @@
 #    1. SSH into your Alibaba ECS instance
 #    2. Clone the repo:  git clone https://github.com/02NIN20/qwen-council.git
 #    3. cd qwen-council
-#    4. Create .env with your Qwen API key (see .env.example)
+#    4. Create .env with your LLM API key (see .env.example)
 #    5. Run:  sudo bash deploy.sh
 #
 #  This script will:
@@ -36,12 +36,12 @@ cd "$(dirname "$0")"
 if [[ ! -f .env ]]; then
     log_error ".env file not found!"
     echo ""
-    echo "  Create .env from the template:"
-    echo "    cp .env.example .env"
-    echo ""
-    echo "  Then edit .env and set your Qwen API key:"
-    echo "    qwen_api_key=sk-your-key-here"
-    echo ""
+  echo "  Create .env from the template:"
+  echo "    cp .env.example .env"
+  echo ""
+  echo "  Then edit .env and set your LLM API key:"
+  echo "    llm_api_key=sk-your-key-here"
+  echo ""
     exit 1
 fi
 
@@ -56,8 +56,8 @@ set -a
 source .env
 set +a
 
-if [[ -z "${qwen_api_key:-}" ]]; then
-    log_error "qwen_api_key is not set in .env"
+if [[ -z "${llm_api_key:-}" ]]; then
+    log_error "llm_api_key is not set in .env"
     exit 1
 fi
 

@@ -11,20 +11,21 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Global application settings."""
 
-    # ── Qwen Cloud API ──────────────────────────────────────────────
-    qwen_api_key: str = ""
-    qwen_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    qwen_model: str = "qwen-plus-latest"
-    qwen_embedding_model: str = "text-embedding-v3"
-    qwen_timeout_seconds: int = 300
+    # ── LLM Provider (OpenAI-compatible) ────────────────────────────
+    llm_api_key: str = ""
+    llm_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    llm_model: str = "qwen-plus-latest"
+    llm_embedding_model: str = "text-embedding-v3"
+    llm_timeout_seconds: int = 300
+    llm_provider: str = "qwen"  # qwen | openai | ollama
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Defensive: strip CRLF carriage returns that sneak in when .env
         # has Windows line endings and is sourced by Docker/deploy scripts.
-        self.qwen_api_key = self.qwen_api_key.strip()
-        self.qwen_base_url = self.qwen_base_url.strip()
-        self.qwen_model = self.qwen_model.strip()
+        self.llm_api_key = self.llm_api_key.strip()
+        self.llm_base_url = self.llm_base_url.strip()
+        self.llm_model = self.llm_model.strip()
 
     # ── Database ────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/qwen_council"

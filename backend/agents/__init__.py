@@ -14,27 +14,12 @@ from backend.agents.core.engineer_agent import EngineerAgent
 from backend.agents.core.critic_agent import CriticAgent
 from backend.agents.core.researcher_agent import ResearcherAgent
 
-# Legacy review agents (kept for backward compatibility with old sessions)
-from backend.agents.security_agent import SecurityAgent
-from backend.agents.architecture_agent import ArchitectureAgent
-from backend.agents.quality_agent import QualityAgent
-from backend.agents.performance_agent import PerformanceAgent
-from backend.agents.ux_agent import UXAgent
-from backend.agents.vision_agent import VisionAgent
-
 __all__ = [
-    # Core agents
+    # Core agents (Agent Society)
     "CoordinatorAgent",
     "AnalystAgent",
     "ArchitectAgent",
     "EngineerAgent",
     "CriticAgent",
     "ResearcherAgent",
-    # Legacy review agents
-    "SecurityAgent",
-    "ArchitectureAgent",
-    "QualityAgent",
-    "PerformanceAgent",
-    "UXAgent",
-    "VisionAgent",
 ]

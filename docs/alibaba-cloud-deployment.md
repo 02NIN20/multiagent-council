@@ -48,10 +48,11 @@ The system uses **Qwen Cloud (DashScope)** as its LLM provider:
 
 Configuration in `.env`:
 ```
-qwen_api_key=sk-*** (set via environment)
-qwen_base_url=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
-qwen_model=qwen3-plus
-qwen_embedding_model=text-embedding-v3
+llm_api_key=sk-*** (set via environment)
+llm_base_url=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+llm_model=qwen-plus-latest
+llm_embedding_model=text-embedding-v3
+llm_provider=qwen
 ```
 
 ## 3. Docker Containers Running on ECS

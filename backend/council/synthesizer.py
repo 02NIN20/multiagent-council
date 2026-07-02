@@ -126,8 +126,8 @@ async def _generate_narrative(
     """
     try:
         client = AsyncOpenAI(
-            api_key=settings.qwen_api_key,
-            base_url=settings.qwen_base_url,
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url,
             timeout=300,
         )
 
@@ -161,7 +161,7 @@ async def _generate_narrative(
         )
 
         response = await client.chat.completions.create(
-            model=settings.qwen_model,
+            model=settings.llm_model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},

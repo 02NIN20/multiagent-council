@@ -116,7 +116,7 @@ cd qwen-council
 # Backend
 pip install -r backend/requirements.txt
 cp .env.example .env
-# Edit .env and set your qwen_api_key
+# Edit .env and set your llm_api_key
 
 # Frontend
 cd frontend
@@ -140,7 +140,7 @@ Open http://localhost:5173
 
 ```bash
 cp .env.example .env
-nano .env   # Set your qwen_api_key
+nano .env   # Set your llm_api_key
 docker compose up --build -d
 ```
 
@@ -324,9 +324,10 @@ set_provider(MockProvider())
 
 Configuration via `.env`:
 ```env
-qwen_api_key=sk-your-key
-qwen_model=qwen-plus-latest
-qwen_base_url=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+llm_api_key=sk-your-key
+llm_model=qwen-plus-latest
+llm_base_url=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+llm_provider=qwen
 ```
 
 ---
@@ -369,7 +370,7 @@ ssh root@your-ecs-ip
 git clone https://github.com/02NIN20/qwen-council.git
 cd qwen-council
 cp .env.example .env
-nano .env   # Set qwen_api_key, qwen_base_url, qwen_model
+nano .env   # Set llm_api_key, llm_base_url, llm_model
 sudo bash deploy.sh
 ```
 

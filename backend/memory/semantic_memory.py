@@ -30,11 +30,11 @@ class SemanticMemoryManager:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self._client = AsyncOpenAI(
-            api_key=settings.qwen_api_key,
-            base_url=settings.qwen_base_url,
-            timeout=settings.qwen_timeout_seconds,
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url,
+            timeout=settings.llm_timeout_seconds,
         )
-        self._embedding_model = settings.qwen_embedding_model
+        self._embedding_model = settings.llm_embedding_model
 
     # ──────────────────────────────────────────────
     #  Write

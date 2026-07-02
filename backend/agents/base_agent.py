@@ -44,11 +44,11 @@ class BaseAgent(ABC):
         self._last_token_usage: dict[str, int] = {}
 
         self._client = AsyncOpenAI(
-            api_key=settings.qwen_api_key,
-            base_url=settings.qwen_base_url,
-            timeout=settings.qwen_timeout_seconds,
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url,
+            timeout=settings.llm_timeout_seconds,
         )
-        self._model = settings.qwen_model
+        self._model = settings.llm_model
 
     # ──────────────────────────────────────────────
     #  Public API
@@ -287,7 +287,7 @@ class BaseAgent(ABC):
 
     async def _call_llm(self, user_prompt: str) -> str:
         """Send a chat completion request via the LLM provider."""
-        if not settings.qwen_api_key:
+        if not settings.llm_api_key:
             logger.error("[%s] Qwen API key is not set! Cannot call LLM.", self.name)
             return "NO_FINDINGS"
 

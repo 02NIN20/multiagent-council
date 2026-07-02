@@ -24,16 +24,16 @@ class GeneralistAgent:
     Parameters
     ----------
     model : str | None
-        Override model name (defaults to settings.qwen_model).
+        Override model name (defaults to settings.llm_model).
     """
 
     def __init__(self, model: str | None = None) -> None:
         self.name = "generalist"
-        self._model = model or settings.qwen_model
+        self._model = model or settings.llm_model
         self._client = AsyncOpenAI(
-            api_key=settings.qwen_api_key,
-            base_url=settings.qwen_base_url,
-            timeout=settings.qwen_timeout_seconds,
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url,
+            timeout=settings.llm_timeout_seconds,
         )
 
     async def analyze(self, code: str) -> list[Finding]:
@@ -82,7 +82,7 @@ class GeneralistAgent:
             "performance, UX, visual/UI). Leave no domain unexplored."
         )
 
-        if not settings.qwen_api_key:
+        if not settings.llm_api_key:
             logger.error("GeneralistAgent: Qwen API key is not set!")
             return []
 

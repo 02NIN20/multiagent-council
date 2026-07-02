@@ -56,9 +56,9 @@ async def _call_llm(system: str, prompt: str, max_tokens: int = 2048) -> str:
     """Direct LLM call (no agent routing). Used by generate_code and analyze_file."""
     from openai import AsyncOpenAI
     from backend.config import settings
-    client = AsyncOpenAI(api_key=settings.qwen_api_key, base_url=settings.qwen_base_url)
+    client = AsyncOpenAI(api_key=settings.llm_api_key, base_url=settings.llm_base_url)
     response = await client.chat.completions.create(
-        model=settings.qwen_model,
+        model=settings.llm_model,
         messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
         temperature=0.2,
         max_tokens=max_tokens,
@@ -145,7 +145,7 @@ async def analyze_file(filename: str, content: str, question: str = "") -> str:
         truncated = content[:4000] if len(content) > 4000 else content
         from openai import AsyncOpenAI
         from backend.config import settings
-        client = AsyncOpenAI(api_key=settings.qwen_api_key, base_url=settings.qwen_base_url)
+        client = AsyncOpenAI(api_key=settings.llm_api_key, base_url=settings.llm_base_url)
 
         if content_type == "code":
             system = "You are a senior code analyst. Be concise but thorough."
@@ -166,7 +166,7 @@ async def analyze_file(filename: str, content: str, question: str = "") -> str:
             + "\nProvide: overview, key points, potential issues or insights."
         )
         resp = await client.chat.completions.create(
-            model=settings.qwen_model,
+            model=settings.llm_model,
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt},

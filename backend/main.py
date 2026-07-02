@@ -72,11 +72,11 @@ async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
     logger.info("Starting Qwen Council API")
     # Log API key status (safely — never log the actual key)
-    key_status = "SET" if settings.qwen_api_key else "NOT SET — agents will return NO_FINDINGS!"
-    key_preview = (settings.qwen_api_key[:8] + "..." + settings.qwen_api_key[-4:]) if settings.qwen_api_key else "N/A"
-    logger.info("Qwen API key: %s (len=%d, preview=%s)", key_status, len(settings.qwen_api_key), key_preview)
-    logger.info("Qwen model: %s", settings.qwen_model)
-    logger.info("Qwen base URL: %s", settings.qwen_base_url)
+    key_status = "SET" if settings.llm_api_key else "NOT SET — agents will return NO_FINDINGS!"
+    key_preview = (settings.llm_api_key[:8] + "..." + settings.llm_api_key[-4:]) if settings.llm_api_key else "N/A"
+    logger.info("Qwen API key: %s (len=%d, preview=%s)", key_status, len(settings.llm_api_key), key_preview)
+    logger.info("Qwen model: %s", settings.llm_model)
+    logger.info("Qwen base URL: %s", settings.llm_base_url)
     logger.info("Database URL: %s", settings.database_url.replace(settings.database_url.split(":")[2].split("@")[0], "****") if "@" in settings.database_url else settings.database_url)
     try:
         await init_db()
@@ -100,11 +100,12 @@ app = FastAPI(
         "Multi-agent code review and collaboration system built for the "
         "[Global AI Hackathon Series with Qwen Cloud](https://qwencloud-hackathon.devpost.com/) — Track 3: Agent Society.\n\n"
         "## Features\n\n"
-        "- **6 specialised code review agents** (Security, Architecture, Quality, Performance, UX, Vision)\n"
-        "- **8 personality-based chat agents** (Scientist, Technologist, Philosopher, Historian, Artist, Psychologist, Strategist, Generalist)\n"
-        "- **4-round debate cycle** with Inverted Pyramid + Given-New communication protocol\n"
+        "- **6 role-based core agents** (Coordinator, Analyst, Architect, Engineer, Critic, Researcher)\n"
+        "- **15 specialised sub-agents** delegated by core agents for task decomposition\n"
+        "- **3-round debate cycle** with Inverted Pyramid + Given-New communication protocol\n"
         "- **3-level memory architecture** (Working, Episodic, Semantic with pgvector)\n"
-        "- **Real-time SSE streaming** for live agent status updates\n\n"
+        "- **Real-time SSE streaming** for live agent status updates\n"
+        "- **MCP server** for integration with OpenCode, Claude Desktop, and Cursor\n\n"
         "## Authentication\n\n"
         "No authentication required. All endpoints are public for hackathon demo purposes.\n\n"
         "## Token Usage\n\n"
@@ -510,8 +511,8 @@ async def _synthesize_chat(
     # Other categories — merge all unique insights
     from openai import AsyncOpenAI
     client = AsyncOpenAI(
-        api_key=settings.qwen_api_key,
-        base_url=settings.qwen_base_url,
+        api_key=settings.llm_api_key,
+        base_url=settings.llm_base_url,
     )
 
     answers_block = "\n\n".join(
@@ -520,7 +521,7 @@ async def _synthesize_chat(
     )
 
     resp = await client.chat.completions.create(
-        model=settings.qwen_model,
+        model=settings.llm_model,
         messages=[
             {
                 "role": "system",
@@ -568,8 +569,8 @@ async def chat_general(
         # ── Follow-up mode (code review context only) ────────────────
         if payload.session_id and payload.context:
             client = AsyncOpenAI(
-                api_key=settings.qwen_api_key,
-                base_url=settings.qwen_base_url,
+                api_key=settings.llm_api_key,
+                base_url=settings.llm_base_url,
             )
             system_prompt = (
                 "You are a code review assistant answering follow-up questions about a previous analysis. "
@@ -581,7 +582,7 @@ async def chat_general(
                 f"### Question:\n{payload.message}"
             )
             resp = await client.chat.completions.create(
-                model=settings.qwen_model,
+                model=settings.llm_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content},
@@ -799,14 +800,14 @@ async def chat_stream(payload: ChatRequest):
             if use_direct_llm and not payload.images:
                 try:
                     from openai import AsyncOpenAI
-                    client = AsyncOpenAI(api_key=settings.qwen_api_key, base_url=settings.qwen_base_url)
+                    client = AsyncOpenAI(api_key=settings.llm_api_key, base_url=settings.llm_base_url)
                     file_block = "\n\n".join(
                         f"### {f['filename']}\n```\n{f['content'][:6000]}\n```"
                         for f in direct_llm_files
                     )
                     prompt = f"{file_block}\n\n### Question:\n{payload.message}"
                     response = await client.chat.completions.create(
-                        model=settings.qwen_model,
+                        model=settings.llm_model,
                         messages=[
                             {"role": "system", "content": direct_llm_system},
                             {"role": "user", "content": prompt},
@@ -836,8 +837,8 @@ async def chat_stream(payload: ChatRequest):
             if payload.session_id and payload.context:
                 from openai import AsyncOpenAI
                 client = AsyncOpenAI(
-                    api_key=settings.qwen_api_key,
-                    base_url=settings.qwen_base_url,
+                    api_key=settings.llm_api_key,
+                    base_url=settings.llm_base_url,
                 )
                 yield "event: synthesis_complete\ndata: " + json.dumps({
                     "final_answer": "Follow-up mode — single response",

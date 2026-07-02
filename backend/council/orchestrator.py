@@ -261,7 +261,7 @@ class CouncilOrchestrator:
             "total_output_tokens": total_output,
             "total_tokens": total_input + total_output,
             "estimated_cost_usd": round(estimated_cost, 4),
-            "model": settings.qwen_model,
+            "model": settings.llm_model,
         }
 
         report = await synthesize(
@@ -500,7 +500,7 @@ class CouncilOrchestrator:
                 "total_output_tokens": total_output,
                 "total_tokens": total_input + total_output,
                 "estimated_cost_usd": round(estimated_cost, 4),
-                "model": settings.qwen_model,
+                "model": settings.llm_model,
             }
 
             report = await synthesize(
