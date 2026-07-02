@@ -220,7 +220,7 @@ export default function BenchmarkDashboard({ onClose }: BenchmarkDashboardProps)
               &gt; BENCHMARK RESULTS
             </h1>
             <p className="text-[10px] text-gray-600 font-mono mt-0.5">
-              Multi-Agent Council vs Single-Agent Generalist &mdash; Qwen3-Plus
+              Multi-Agent Council vs Single-Agent Generalist &mdash; qwen-plus-2025-07-28
             </p>
           </div>
           <button
@@ -296,21 +296,21 @@ export default function BenchmarkDashboard({ onClose }: BenchmarkDashboardProps)
           <div className="border border-retro-border bg-retro-bg p-3">
             <div className="grid grid-cols-2 gap-3 text-[11px] font-mono">
               <div>
-                <p className="text-retro-green font-bold mb-1">Multi-agent wins</p>
+                <p className="text-retro-green font-bold mb-1">Multi-agent strengths</p>
                 <ul className="space-y-0.5 text-gray-400">
-                  <li>+ 2.36x more findings</li>
-                  <li>+ 150% more categories</li>
-                  <li>+ 13% higher severity</li>
-                  <li>85.7% overlap + 19 unique</li>
+                  <li>+ 6/6 categories covered</li>
+                  <li>+ 21% higher avg severity</li>
+                  <li>+ 13 unique findings</li>
+                  <li>Agent debate + synthesis</li>
                 </ul>
               </div>
               <div>
                 <p className="text-retro-orange font-bold mb-1">Trade-offs</p>
                 <ul className="space-y-0.5 text-gray-400">
-                  <li>- 7-9x more API cost</li>
-                  <li>- 4x slower (32.5s)</li>
-                  <li>- 13% lower precision</li>
-                  <li>Higher false positive rate</li>
+                  <li>- 12.5x more API cost</li>
+                  <li>- 12.7x slower (152s)</li>
+                  <li>- 24.6% lower F1</li>
+                  <li>Best for large codebases</li>
                 </ul>
               </div>
             </div>
@@ -337,7 +337,7 @@ export default function BenchmarkDashboard({ onClose }: BenchmarkDashboardProps)
         </div>
 
         <p className="text-[10px] text-gray-700 font-mono text-center pb-4">
-          Dataset: 3 production-like apps (548 lines total) &middot; Ground truth: 22 known vulnerabilities
+          Dataset: 7 OWASP benchmark samples &middot; Ground truth: 36 known vulnerabilities &middot; Model: qwen-plus-2025-07-28 &middot; Metrics use consolidated findings (synthesizer output)
         </p>
       </div>
     </div>

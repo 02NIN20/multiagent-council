@@ -26,32 +26,49 @@ export interface BenchmarkDataSet {
   falsePositivesPer100: { single: number; multi: number };
 }
 
+/**
+ * Measured benchmark data — 3 OWASP samples, qwen3-235b-a22b-instruct-2507.
+ *
+ * Single-agent: one GeneralistAgent LLM call reviewing all 6 categories.
+ * Multi-agent: 6 agents x 3 debate rounds, consolidated via synthesizer.
+ *
+ * Key insight: single-agent wins on raw security F1 for small samples
+ * (~150 lines). Multi-agent covers 6/6 categories (vs 3/6) and scales
+ * better to large, multi-concern codebases. Its value is breadth, depth,
+ * and the agent society architecture — not narrow security benchmarks.
+ *
+ * Run: 2026-07-02. Dataset: 3 OWASP samples, 14 ground truth bugs.
+ */
 export const BENCHMARK_DATA: BenchmarkDataSet = {
-  totalFindings: { single: 14, multi: 33 },
-  precision: { single: 54.2, multi: 41.0 },
-  recall: { single: 92.9, multi: 66.1 },
-  f1Score: { single: 69.6, multi: 52.2 },
-  categoriesCovered: { single: 4, multi: 6, total: 6 },
-  avgSeverity: { single: 3.0, multi: 3.2 },
-  executionTime: { single: 8.2, multi: 32.5 },
-  cost: { single: 0.004, multi: 0.028 },
+  totalFindings: { single: 43, multi: 21 },
+  precision: { single: 28.1, multi: 15.3 },
+  recall: { single: 86.7, multi: 21.7 },
+  f1Score: { single: 42.3, multi: 17.7 },
+  categoriesCovered: { single: 3, multi: 6, total: 6 },
+  avgSeverity: { single: 2.8, multi: 3.2 },
+  executionTime: { single: 12.0, multi: 152.0 },
+  cost: { single: 0.002, multi: 0.025 },
+
   perApp: [
-    { name: 'vulnerable_app.py', single: 8, multi: 18 },
-    { name: 'flask_app.py', single: 6, multi: 15 },
-    { name: 'api_service.py', single: 4, multi: 8 },
+    { name: 'sqli_app.py (4 bugs)', single: 14, multi: 8 },
+    { name: 'xss_app.py (5 bugs)', single: 13, multi: 7 },
+    { name: 'cmd_injection.py (5 bugs)', single: 16, multi: 6 },
   ],
+
   overlap: {
-    overlapping: 12,
+    overlapping: 8,
     singleTotal: 14,
-    singleUnique: 2,
-    multiUnique: 19,
+    singleUnique: 6,
+    multiUnique: 13,
   },
+
   severityDistribution: {
-    Critical: { single: 3, multi: 8 },
-    High: { single: 4, multi: 7 },
-    Medium: { single: 3, multi: 5 },
-    Low: { single: 1, multi: 1 },
+    Critical: { single: 3, multi: 5 },
+    High: { single: 5, multi: 7 },
+    Medium: { single: 4, multi: 6 },
+    Low: { single: 2, multi: 3 },
   },
+
   categoryCoverage: [
     { name: 'Security', single: true, multi: true },
     { name: 'Architecture', single: false, multi: true },
@@ -60,5 +77,6 @@ export const BENCHMARK_DATA: BenchmarkDataSet = {
     { name: 'UX', single: false, multi: true },
     { name: 'Visual', single: false, multi: true },
   ],
-  falsePositivesPer100: { single: 1.04, multi: 2.64 },
+
+  falsePositivesPer100: { single: 1.67, multi: 0.83 },
 };

@@ -1,3 +1,5 @@
+# DEPRECATED: The architecture diagram is now inline Mermaid in README.md.
+# This file is kept for reference only.
 """Generate professional architecture diagram using Graphviz.
 
 Usage:

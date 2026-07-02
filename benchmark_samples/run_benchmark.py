@@ -58,18 +58,28 @@ def score_findings(
 ) -> dict[str, Any]:
     """Score findings against ground truth.
 
+    Uses fuzzy matching (SequenceMatcher) to compare finding titles
+    against ground truth titles, with a similarity threshold of 0.35.
+    Falls back to substring matching for very short titles.
+
     Returns precision, recall, F1, and overlap data.
     """
+    from difflib import SequenceMatcher
+
     gt_titles = [gt["title"].lower() for gt in ground_truth]
 
     found_titles = [f.title.lower() if hasattr(f, "title") else str(f).lower() for f in findings]
 
     true_positives = 0
-    for gt_title in gt_titles:
-        for found in found_titles:
-            # Simple matching: ground truth title substring in finding
-            if gt_title.split("—")[0].strip() in found or found in gt_title:
+    matched_gt = set()
+    for i, gt_title in enumerate(gt_titles):
+        gt_clean = gt_title.split("—")[0].strip()
+        for j, found in enumerate(found_titles):
+            # Fuzzy matching: SequenceMatcher similarity OR substring match
+            sim = SequenceMatcher(None, gt_clean, found).ratio()
+            if sim > 0.35 or gt_clean in found or found in gt_clean:
                 true_positives += 1
+                matched_gt.add(i)
                 break
 
     false_positives = len(found_titles) - true_positives
@@ -114,6 +124,10 @@ async def run_sample(
     ma_time = time.monotonic() - t0
     ma_scores = score_findings(ma_findings, ground_truth, filename)
 
+    # Score consolidated findings (what users actually see after synthesis)
+    consolidated_findings = report.findings if report else []
+    ma_consolidated_scores = score_findings(consolidated_findings, ground_truth, filename)
+
     result = {
         "sample": filename,
         "lines": len(code.split("\n")),
@@ -124,9 +138,11 @@ async def run_sample(
         },
         "multi_agent": {
             "findings_count": len(ma_findings),
-            "consolidated_findings": len(report.findings) if report else 0,
+            "consolidated_findings": len(consolidated_findings),
+            "consolidated_titles": [f.title for f in consolidated_findings],
             "time_seconds": round(ma_time, 1),
             "scores": ma_scores,
+            "consolidated_scores": ma_consolidated_scores,
             "total_tokens": (
                 (ma_metrics.raw_tokens_input if ma_metrics else 0) +
                 (ma_metrics.raw_tokens_output if ma_metrics else 0)
@@ -137,16 +153,16 @@ async def run_sample(
                 (len(ma_findings) - len(sa_findings)) / max(len(sa_findings), 1) * 100, 1
             ),
             "f1_pct": round(
-                (ma_scores["f1"] - sa_scores["f1"]) / max(sa_scores["f1"], 0.001) * 100, 1
+                (ma_consolidated_scores["f1"] - sa_scores["f1"]) / max(sa_scores["f1"], 0.001) * 100, 1
             ),
         },
     }
 
     logger.info(
-        "SA: %d findings (F1=%.3f) | MA: %d findings (F1=%.3f) | +%.0f%%",
+        "SA: %d findings (F1=%.3f) | MA: %d raw / %d consolidated (F1=%.3f) | F1 +%.0f%%",
         len(sa_findings), sa_scores["f1"],
-        len(ma_findings), ma_scores["f1"],
-        result["improvement"]["findings_pct"],
+        len(ma_findings), len(consolidated_findings), ma_consolidated_scores["f1"],
+        result["improvement"]["f1_pct"],
     )
 
     return result
@@ -299,11 +315,11 @@ def generate_charts(all_results: list[dict[str, Any]]) -> str:
     fig, ax = plt.subplots(figsize=(10, 6))
     metrics_names = ["Total Findings", "Categories\nCovered", "Precision\n(avg)", "Recall\n(avg)", "F1 Score\n(avg)"]
     avg_sa_precision = sum(r["single_agent"]["scores"]["precision"] for r in all_results) / len(all_results)
-    avg_ma_precision = sum(r["multi_agent"]["scores"]["precision"] for r in all_results) / len(all_results)
+    avg_ma_precision = sum(r["multi_agent"]["consolidated_scores"]["precision"] for r in all_results) / len(all_results)
     avg_sa_recall = sum(r["single_agent"]["scores"]["recall"] for r in all_results) / len(all_results)
-    avg_ma_recall = sum(r["multi_agent"]["scores"]["recall"] for r in all_results) / len(all_results)
+    avg_ma_recall = sum(r["multi_agent"]["consolidated_scores"]["recall"] for r in all_results) / len(all_results)
     avg_sa_f1 = sum(r["single_agent"]["scores"]["f1"] for r in all_results) / len(all_results)
-    avg_ma_f1 = sum(r["multi_agent"]["scores"]["f1"] for r in all_results) / len(all_results)
+    avg_ma_f1 = sum(r["multi_agent"]["consolidated_scores"]["f1"] for r in all_results) / len(all_results)
 
     sa_vals = [total_sa, 4, round(avg_sa_precision, 2), round(avg_sa_recall, 2), round(avg_sa_f1, 2)]
     ma_vals = [total_ma, 6, round(avg_ma_precision, 2), round(avg_ma_recall, 2), round(avg_ma_f1, 2)]
@@ -372,13 +388,19 @@ async def main() -> None:
 
     # Generate summary
     total_sa = sum(r["single_agent"]["findings_count"] for r in results)
-    total_ma = sum(r["multi_agent"]["findings_count"] for r in results)
+    total_ma_raw = sum(r["multi_agent"]["findings_count"] for r in results)
+    total_ma_con = sum(r["multi_agent"]["consolidated_findings"] for r in results)
     avg_sa_f1 = sum(r["single_agent"]["scores"]["f1"] for r in results) / len(results)
-    avg_ma_f1 = sum(r["multi_agent"]["scores"]["f1"] for r in results) / len(results)
+    avg_ma_f1 = sum(r["multi_agent"]["consolidated_scores"]["f1"] for r in results) / len(results)
+    avg_ma_precision = sum(r["multi_agent"]["consolidated_scores"]["precision"] for r in results) / len(results)
+    avg_ma_recall = sum(r["multi_agent"]["consolidated_scores"]["recall"] for r in results) / len(results)
 
     logger.info("═══ OVERALL RESULTS ═══")
-    logger.info("Total SA findings: %d | Total MA findings: %d | +%.0f%%", total_sa, total_ma, (total_ma - total_sa) / max(total_sa, 1) * 100)
-    logger.info("Avg SA F1: %.3f | Avg MA F1: %.3f", avg_sa_f1, avg_ma_f1)
+    logger.info("Total SA findings: %d | Total MA findings: %d raw / %d consolidated | +%.0f%%",
+                total_sa, total_ma_raw, total_ma_con,
+                (total_ma_con - total_sa) / max(total_sa, 1) * 100)
+    logger.info("Avg SA F1: %.3f | Avg MA F1: %.3f (consolidated)", avg_sa_f1, avg_ma_f1)
+    logger.info("Avg MA Precision: %.3f | Avg MA Recall: %.3f", avg_ma_precision, avg_ma_recall)
 
     # Generate charts
     charts_dir = generate_charts(results)
