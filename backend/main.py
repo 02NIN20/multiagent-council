@@ -466,7 +466,6 @@ def _route_question(category: str, has_images: bool = False) -> list[dict[str, o
         "engineer": EngineerAgent(),
         "critic": CriticAgent(),
         "researcher": ResearcherAgent(),
-        "vision": VisionAgent(),
     }
 
     # Route table: category → which core agents to call
@@ -475,16 +474,18 @@ def _route_question(category: str, has_images: bool = False) -> list[dict[str, o
         "science":    ["analyst", "researcher"],
         "tech":       ["engineer", "critic", "architect"],
         "history":    ["researcher", "analyst"],
-        "art":        ["analyst", "researcher"],
+        "art":        ["analyst", "researcher", "critic"],
         "philosophy": ["analyst", "coordinator"],
         "strategy":   ["coordinator", "architect", "analyst"],
         "general":    ["coordinator", "analyst", "architect", "engineer", "critic", "researcher"],
     }
 
     selected = routes.get(category, routes["general"])
-    # Always include vision agent when images are uploaded
-    if has_images and "vision" not in selected:
-        selected = selected + ["vision"]
+    # When images are present, add agents good at visual analysis
+    if has_images:
+        for img_agent in ("critic", "analyst", "researcher"):
+            if img_agent not in selected:
+                selected.append(img_agent)
     return [(name, agents[name]) for name in selected]
 
 
@@ -686,36 +687,28 @@ async def chat_general(
             file_context = "\n\n".join(file_parts)
             agent_context += f"\n### Uploaded files:\n{file_context}\n"
 
-        # Process images for vision agent
-        image_urls: list[str] = []
+        # Add image info to context for all agents
         if payload.images:
-            for img in payload.images:
-                image_url = f"data:{img.mime_type};base64,{img.content}"
-                image_urls.append(image_url)
-            # Add image info to context for non-vision agents
             img_summary = "\n".join(
-                f"- {img.filename} ({img.mime_type})" for img in payload.images
+                f"- {img.filename} ({img.mime_type})\n  data:{img.mime_type};base64,{img.content[:80]}..."
+                for img in payload.images
             )
             agent_context += f"\n### Uploaded images:\n{img_summary}\n"
 
         async def ask_agent(name: str, agent: object) -> dict:
-            """Call a single agent's answer_question and return its contribution."""
+            """Call a single agent's answer_question and return its contribution.
+
+            Image data is injected into *agent_context* for all agents
+            (no separate \"vision\" agent needed).
+            """
             try:
-                # Vision agent gets the actual image; others get text context only
-                if name == "vision" and image_urls:
-                    answer = await agent.answer_question(  # type: ignore[union-attr]
-                        question=payload.message,
-                        context=agent_context if agent_context else None,
-                        image_url=image_urls[0],
-                    )
-                else:
-                    # Pass content_type so the agent adapts its response style
-                    ct = detected_content_types[0] if detected_content_types else "general"
-                    answer = await agent.answer_question(  # type: ignore[union-attr]
-                        question=payload.message,
-                        context=agent_context if agent_context else None,
-                        content_type=ct,
-                    )
+                # Pass content_type so the agent adapts its response style
+                ct = detected_content_types[0] if detected_content_types else "general"
+                answer = await agent.answer_question(  # type: ignore[union-attr]
+                    question=payload.message,
+                    context=agent_context if agent_context else None,
+                    content_type=ct,
+                )
                 return {
                     "agent": name,
                     "role_description": getattr(agent, "role_description", ""),

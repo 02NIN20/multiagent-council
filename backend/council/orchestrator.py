@@ -168,12 +168,21 @@ class CouncilOrchestrator:
         # Retrieve relevant semantic memory patterns
         semantic_patterns = await self._retrieve_semantic_context(code)
 
-        # Convert image files to data URIs for the vision agent
+        # Convert image files to data URIs — inject directly into code
+        # context so ALL agents see it (no longer routed to a "vision" agent).
         image_url = None
         if image_files:
-            # Use the first image for now (vision agent handles one at a time)
             img = image_files[0]
             image_url = f"data:{img.mime_type};base64,{img.content}"
+            # Prepend image description to code for all agents
+            image_block = (
+                f"\n### User uploaded image: {img.filename} ({img.mime_type})\n"
+                f"The image is available at the following data URI. "
+                f"Analyse it for visual issues, UI problems, diagrams, "
+                f"screenshots, or any relevant information.\n"
+                f"Image data: {image_url[:200]}...\n"
+            )
+            code = image_block + "\n\n" + code
             round_data["images"] = [{"filename": img.filename, "mime_type": img.mime_type}]
 
         all_findings: dict[int, list[Finding]] = {}
@@ -189,7 +198,7 @@ class CouncilOrchestrator:
             round_num=1,
             context_findings=None,
             semantic_context=semantic_patterns,
-            image_url=image_url,
+            image_url=image_url,  # kept for BW compat, injected in code above
             agents=active_agents,
         )
         all_findings[1] = round1_findings
@@ -409,11 +418,18 @@ class CouncilOrchestrator:
                 file_context = self._build_multi_file_context(files)
                 code = file_context + "\n\n### Additional code:\n\n" + code
 
-        # Convert image files to data URIs for the vision agent
+        # Convert image files to data URIs — inject into code for ALL agents
         image_url = None
         if image_files:
             img = image_files[0]
             image_url = f"data:{img.mime_type};base64,{img.content}"
+            image_block = (
+                f"\n### User uploaded image: {img.filename} ({img.mime_type})\n"
+                f"The image data is: {image_url[:200]}...\n"
+                f"Analyse it for visual issues, UI problems, diagrams, or "
+                f"screenshots.\n"
+            )
+            code = image_block + "\n\n" + code
 
         # Prepend instruction if provided
         if instruction:
@@ -482,7 +498,7 @@ class CouncilOrchestrator:
                             round_num=round_num,
                             code=code_with_context,
                             context=ctx,
-                            image_url=image_url if name == "vision" else None,
+                            image_url=image_url,  # injected in code for all agents
                         )
                     )
 
@@ -654,18 +670,17 @@ class CouncilOrchestrator:
         max_retries: int = 2,
         timeout_seconds: int = 120,
     ) -> list[Finding]:
-        """Call agent.analyze() with retry logic, exponential backoff, and timeout."""
+        """Call agent.analyze() with retry logic, exponential backoff, and timeout.
+
+        Note: image data is now injected directly into *code* as text context,
+        so ALL agents receive it without needing a special \"vision\" parameter.
+        """
         last_error = None
         for attempt in range(max_retries + 1):
             try:
-                if agent_name == "vision" and image_url:
-                    coro = agent.analyze(
-                        code=code, context=context, round=round_num, image_url=image_url
-                    )
-                else:
-                    coro = agent.analyze(
-                        code=code, context=context, round=round_num
-                    )
+                coro = agent.analyze(
+                    code=code, context=context, round=round_num
+                )
                 return await asyncio.wait_for(coro, timeout=timeout_seconds)
             except asyncio.TimeoutError:
                 last_error = TimeoutError(f"Agent '{agent_name}' timed out after {timeout_seconds}s")
@@ -738,7 +753,7 @@ class CouncilOrchestrator:
                     round_num=round_num,
                     code=code_with_context,
                     context=ctx,
-                    image_url=image_url if name == "vision" else None,
+                    image_url=image_url,  # injected in code for all agents
                 )
             )
 
