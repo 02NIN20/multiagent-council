@@ -115,47 +115,18 @@ class BaseAgent(ABC):
         )
 
     def _build_round_intro(self, round: int) -> str:
-        """Instructions for the current debate round."""
-        if round == 1:
-            return (
-                "### Round 1: Individual Analysis\n"
-                "Analyse the code below and report ONLY findings in your domain of expertise. "
-                "Maximum 3 findings total. If unsure, respond NO_FINDINGS.\n"
-                "2 confirmed issues beat 20 speculative ones.\n"
-                "For each finding: exact line numbers, code snippet, CWE, concise fix (BEFORE/AFTER).\n"
-                "If you are not sure about a finding, DO NOT report it."
-            )
-        elif round == 2:
-            return (
-                "### Round 2: Cross-Debate\n"
-                "Below you will receive findings from other council agents. "
-                "You must apply the **Given-New** principle: each finding must start "
-                "by explicitly referencing another agent's finding.\n\n"
-                "Use phrases such as:\n"
-                "- \"Agreeing with [Agent] on [finding], I add that...\"\n"
-                "- \"I disagree with [Agent] on [finding] because...\"\n"
-                "- \"Building on [Agent]'s point about [finding], I note that...\"\n\n"
-                "When you AGREE, add new evidence (CWE, additional attack vectors, code examples).\n"
-                "When you DISAGREE, explain WHY with technical justification.\n"
-                "Keep the same Inverted Pyramid format for each finding."
-            )
-        elif round == 3:
-            return (
-                "### Round 3: Final Refinement\n"
-                "You have seen all agents' arguments across 2 rounds. Now produce your FINAL refined list:\n"
-                "- You may **KEEP**, **MODIFY**, or **WITHDRAW** each of your findings.\n"
-                "- If you modify a finding, explain WHY with evidence from the debate.\n"
-                "- If you withdraw a finding, state \"WITHDRAWN: <reason>\"\n"
-                "- RETAINED findings must include the most precise line numbers, "
-                "strongest evidence, and clearest fix code.\n"
-                "- Keep the Inverted Pyramid format for retained findings."
-            )
-        return ""
+        """Instructions for the analysis round (single round, no debate)."""
+        return (
+            "Analyse the code below and report ONLY findings in your domain of expertise. "
+            "Maximum 3 findings total. If unsure, respond NO_FINDINGS.\n"
+            "2 confirmed issues beat 20 speculative ones.\n"
+            "For each finding: exact line numbers, code snippet, CWE, concise fix (BEFORE/AFTER).\n"
+            "If you are not sure about a finding, DO NOT report it."
+        )
 
     def _build_context_block(self, context: list[dict[str, Any]] | None, round: int) -> str:
-        """Format previous-round findings as context for the agent."""
-        if not context or round == 1:
-            return ""
+        """No cross-agent context in single-round analysis."""
+        return ""
         block_parts = ["\n### Previous round findings from other agents:\n"]
         for i, item in enumerate(context, 1):
             agent_name = item.get("agent", f"Agent {i}")
@@ -184,27 +155,11 @@ class BaseAgent(ABC):
         context: list[dict[str, Any]] | None = None,
         round: int = 1,
     ) -> str:
-        """Assemble the full user prompt."""
-        parts = [
+        """Assemble the full user prompt for single-round analysis."""
+        return "\n".join([
             self._build_round_intro(round),
-            self._build_context_block(context, round),
             f"\n\n### Code to review:\n\n```\n{code}\n```",
-        ]
-        if round > 1:
-            parts.append(
-                "\n\nAdditional instructions:\n"
-                "- Remember to apply Given-New in your responses.\n"
-                "- Each finding must start with an explicit reference to another agent.\n"
-                "- Keep the Inverted Pyramid format."
-            )
-        if round == 3:
-            parts.append(
-                "\n\nAdditional instructions:\n"
-                "- Indicate whether you **KEEP**, **MODIFY**, or **WITHDRAW** each finding.\n"
-                "- If WITHDRAWN, prefix with \"WITHDRAWN:\".\n"
-                "- For retained findings, use the Inverted Pyramid format."
-            )
-        return "\n".join(parts)
+        ])
 
     # ──────────────────────────────────────────────
     #  General Q&A (non-code-review)

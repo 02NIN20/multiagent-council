@@ -115,23 +115,20 @@ class CouncilOrchestrator:
         budget_config = budget_config or BudgetConfig.from_mode(mode)
         self.budget = TokenBudget(budget_config)
         logger.info(
-            "[%s] Token budget: max_in=%d, max_out=%d, max_cost=$%.2f, max_rounds=%d",
+            "[%s] Token budget: max_in=%d, max_out=%d, max_cost=$%.2f",
             session_id,
             budget_config.max_input_tokens,
             budget_config.max_output_tokens,
             budget_config.max_cost_usd,
-            budget_config.max_rounds,
         )
 
-        # Determine agents and rounds based on mode
+        # Determine agents based on mode — single round for both
         if mode == "light":
             active_agents = {k: self.agents[k] for k in ("critic", "analyst", "architect")}
-            max_rounds = min(2, budget_config.max_rounds)
-            logger.info("[%s] Light mode: 3 agents, %d rounds", session_id, max_rounds)
+            logger.info("[%s] Light mode: 3 agents", session_id)
         else:
             active_agents = self.agents
-            max_rounds = min(3, budget_config.max_rounds)
-            logger.info("[%s] Full mode: 6 agents, %d rounds", session_id, max_rounds)
+            logger.info("[%s] Full mode: 6 agents", session_id)
 
         # Initialize round data for frontend tracing
         round_data: dict[str, Any] = {}
@@ -187,18 +184,18 @@ class CouncilOrchestrator:
 
         all_findings: dict[int, list[Finding]] = {}
 
-        # ── Round 1: Individual analysis ──────────────────────
-        logger.info("[%s] Starting Round 1: Individual analysis", session_id)
-        # Early-exit guard: budget check at start of every round
-        if self.budget and self.budget.is_exhausted():
-            logger.warning("[%s] Budget exhausted before round 1", session_id)
+        # ── Single Round: All agents analyze in parallel ─────
+        # Each agent runs sub-agents ONCE, produces max 3 findings in their domain.
+        # No debate rounds — debate generates noise without improving quality.
+        # Domain expertise is enforced via system prompts, not cross-reference.
+        logger.info("[%s] Running parallel agent analysis (%d agents)", session_id, len(active_agents))
 
         round1_findings = await self._run_round(
             code=code,
             round_num=1,
             context_findings=None,
             semantic_context=semantic_patterns,
-            image_url=image_url,  # kept for BW compat, injected in code above
+            image_url=image_url,
             agents=active_agents,
         )
         all_findings[1] = round1_findings
@@ -206,82 +203,19 @@ class CouncilOrchestrator:
             agent: [f.model_dump() for f in findings]
             for agent, findings in round1_findings.items()
         }
-        self.working_memory.set(session_id, {"round1_findings": round1_findings})
-        logger.info(
-            "[%s] Round 1 complete: %d total findings",
-            session_id,
-            sum(len(v) for v in round1_findings.values()),
-        )
-
-        # ── Round 2: Cross-debate (Given-New) ────────────────
-        # Early-exit: budget check + skip if Round 1 found nothing
-        r1_total = sum(len(v) for v in round1_findings.values())
-        if self.budget and self.budget.is_exhausted():
-            logger.warning("[%s] Budget exhausted, skipping Round 2", session_id)
-        elif r1_total == 0:
-            logger.info("[%s] No findings in Round 1, skipping Round 2", session_id)
-        else:
-            logger.info("[%s] Starting Round 2: Cross-debate", session_id)
-            round2_findings = await self._run_round(
-                code=code,
-                round_num=2,
-                context_findings=round1_findings,
-                semantic_context=semantic_patterns,
-                image_url=image_url,
-                agents=active_agents,
-            )
-            all_findings[2] = round2_findings
-            round_data["round_2"] = {
-                agent: [f.model_dump() for f in findings]
-                for agent, findings in round2_findings.items()
-            }
-            self.working_memory.set(session_id, {"round2_findings": round2_findings})
-            logger.info(
-                "[%s] Round 2 complete: %d total findings",
-                session_id,
-                sum(len(v) for v in round2_findings.values()),
-            )
-
-        # ── Round 3: Refinement (full mode only) ─────────────
-        if max_rounds >= 3:
-            # Early-exit: budget check + skip if Round 2 found nothing
-            r2_total = sum(len(v) for v in all_findings.get(2, {}).values())
-            if self.budget and self.budget.is_exhausted():
-                logger.warning("[%s] Budget exhausted, skipping Round 3", session_id)
-            elif r2_total == 0:
-                logger.info("[%s] No findings in Round 2, skipping Round 3", session_id)
-            else:
-                logger.info("[%s] Starting Round 3: Refinement", session_id)
-                round3_findings = await self._run_round(
-                    code=code,
-                    round_num=3,
-                    context_findings=round2_findings,
-                    semantic_context=semantic_patterns,
-                    image_url=image_url,
-                    agents=active_agents,
-                )
-                all_findings[3] = round3_findings
-                round_data["round_3"] = {
-                    agent: [f.model_dump() for f in findings]
-                    for agent, findings in round3_findings.items()
-                }
-                self.working_memory.set(session_id, {"round3_findings": round3_findings})
-                logger.info(
-                    "[%s] Round 3 complete: %d total findings",
-                    session_id,
-                    sum(len(v) for v in round3_findings.values()),
-                )
+        self.working_memory.set(session_id, {"findings": round1_findings})
+        total_findings = sum(len(v) for v in round1_findings.values())
+        logger.info("[%s] Agent analysis complete: %d total findings", session_id, total_findings)
 
         # ── Flatten findings for synthesis ───────────────────
         flat_by_round: dict[int, list[Finding]] = {}
-        for r in range(1, max_rounds + 1):
-            flat: list[Finding] = []
-            for agent_findings in all_findings.get(r, {}).values():
-                flat.extend(agent_findings)
-            flat_by_round[r] = flat
+        flat: list[Finding] = []
+        for agent_findings in round1_findings.values():
+            flat.extend(agent_findings)
+        flat_by_round[1] = flat
 
         # ── Synthesis ────────────────────────────────────────
-        logger.info("[%s] Running synthesis", session_id)
+        logger.info("[%s] Running synthesis on %d findings", session_id, len(flat))
 
         # Collect token usage from active agents
         agent_token_usage: dict[str, Any] = {}
@@ -316,24 +250,6 @@ class CouncilOrchestrator:
             token_usage=token_data,
         )
         round_data["report"] = report.model_dump()
-
-        # ── Round 4: Negotiation (full mode only) ────────────
-        if max_rounds >= 4:
-            negotiation_transcript = await self._run_negotiation_round(
-                session_id=session_id,
-                code=code,
-                report_findings=report.findings,
-                all_rounds_findings=all_findings,
-            )
-            if negotiation_transcript:
-                round_data["round_4_negotiation"] = negotiation_transcript
-                logger.info(
-                    "[%s] Round 4 negotiation complete: %d disagreements debated",
-                    session_id,
-                    len(negotiation_transcript),
-                )
-            else:
-                logger.info("[%s] No negotiation needed — all findings have strong consensus", session_id)
 
         # Update working memory
         self.working_memory.set(
@@ -392,12 +308,11 @@ class CouncilOrchestrator:
         budget_config = budget_config or BudgetConfig.from_mode(mode)
         self.budget = TokenBudget(budget_config)
         logger.info(
-            "[%s] Token budget: max_in=%d, max_out=%d, max_cost=$%.2f, max_rounds=%d",
+            "[%s] Token budget: max_in=%d, max_out=%d, max_cost=$%.2f",
             session_id,
             budget_config.max_input_tokens,
             budget_config.max_output_tokens,
             budget_config.max_cost_usd,
-            budget_config.max_rounds,
         )
 
         # Determine agents based on mode
@@ -717,42 +632,10 @@ class CouncilOrchestrator:
         """Run one round across all agents in parallel."""
         active = agents if agents is not None else self.agents
 
-        # ── Domain-aware context filtering ──
-        # Each agent only sees findings from agents in related domains.
-        # This prevents agents from commenting outside their expertise.
-        AGENT_DOMAINS: dict[str, set[str]] = {
-            "critic": {"security", "quality", "validation", "style"},
-            "analyst": {"patterns", "complexity", "static_analysis", "quality"},
-            "architect": {"architecture", "dependencies", "scalability", "design"},
-            "engineer": {"implementation", "refactoring", "optimization", "fixes"},
-            "researcher": {"documentation", "best_practices", "references"},
-            "coordinator": {"orchestration", "synthesis", "escalation"},
+        # Context is always empty — single-round analysis, no cross-debate
+        context_per_agent: dict[str, list[dict[str, Any]]] = {
+            name: [] for name in active
         }
-        # Agents whose findings are relevant to each agent
-        RELEVANT_PEERS: dict[str, set[str]] = {
-            "critic": {"critic", "analyst", "engineer"},
-            "analyst": {"analyst", "critic", "engineer", "architect"},
-            "architect": {"architect", "analyst", "engineer"},
-            "engineer": {"engineer", "critic", "analyst", "architect"},
-            "researcher": {"researcher", "analyst", "architect"},
-            "coordinator": {"critic", "analyst", "architect", "engineer", "researcher"},
-        }
-
-        # Build context list for each agent (findings from other agents, domain-filtered)
-        context_per_agent: dict[str, list[dict[str, Any]]] = {}
-        if context_findings:
-            for agent_name in active:
-                others_context: list[dict[str, Any]] = []
-                relevant = RELEVANT_PEERS.get(agent_name, set(active.keys()))
-                for other_name, other_findings in context_findings.items():
-                    if other_name != agent_name and other_name in relevant:
-                        for f in other_findings:
-                            others_context.append(f.model_dump())
-                context_per_agent[agent_name] = others_context
-        else:
-            context_per_agent = {
-                name: [] for name in active
-            }
 
         # Add semantic context if available
         code_with_context = code
