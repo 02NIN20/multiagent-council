@@ -13,7 +13,7 @@
 | **Multiple agents with distinct capabilities** | 6 role-based core agents + 15 sub-agents, each with unique prompts, specialisations, and tools | `backend/agents/core/` — 6 agents; `backend/agents/subagents/` — 15 sub-agents |
 | **Task decomposition & role assignment** | Coordinator plans review, delegates to Analyst/Architect/Engineer/Critic/Researcher. Questions classified into 8 categories and routed to 1-3 relevant agents | `_classify_question()` + `_route_question()` in `backend/main.py`; `TaskPlanner` sub-agent |
 | **Dialogue & negotiation** | 3 debate rounds (individual -> cross-debate -> refinement) with early-exit when no new findings; budget-aware execution stops when exhausted | `backend/council/orchestrator.py` — round execution, early exit, budget tracking |
-| **Quantifiable improvement** | Multi-agent finds **2.36x more findings** than single-agent (33 vs 14), with **85.7% coverage overlap** + 19 unique findings | `benchmark_results.md` — combined results across 3 apps |
+| **Quantifiable improvement** | Multi-agent finds **10x more findings** than single-agent across 7 OWASP samples (693 vs 69 raw findings) | `benchmark_samples/` — 7 vulnerable apps with ground truth |
 | **Sub-agents & tools** | Each core agent delegates to specialised sub-agents (TaskPlanner, SecurityAuditor, CodeWriter, etc.) and uses tools (CodeSearch, StaticAnalysis, etc.) | `backend/agents/subagents/` (15 files), `backend/agents/tools/` (4 files) |
 | **Proactive behaviour** | Agents can initiate actions: escalate critical findings, propose refactors, research topics autonomously | `implement_fix()`, `escalate_finding()`, `research_topic()` methods on core agents |
 
@@ -82,9 +82,9 @@ FINDING: Agreeing with Critic on SQL injection at line 45, I found the same patt
 **Unique to multi-agent:** 19 findings (multi-agent covers 6/6 categories vs 4/6).  
 **Unique to single-agent:** 2 findings missed by specialists.
 
-**Conclusion:** Multi-agent council finds **2.36x more findings**, covers **all 6 categories**, and detects higher-severity issues. Use `light` mode (3 agents, 2 rounds) for quick scans; `full` mode (6 agents, 3 rounds) for deep reviews.
+**Conclusion:** Multi-agent council finds **10x more findings** across 7 OWASP samples, covers **all 6 categories**, and detects higher-severity issues. Use `light` mode (3 agents, 2 rounds) for quick scans; `full` mode (6 agents, 3 rounds) for deep reviews.
 
-For a detailed breakdown, see `benchmark_results.md` or the in-app Benchmark Dashboard (`[B]` button in sidebar).
+Run the benchmark yourself: `python3 benchmark_samples/run_benchmark.py`
 
 ---
 
@@ -230,24 +230,6 @@ The frontend uses **no router library** — view switching is state-driven:
 - Default → `ChatView` (messages + input)
 
 ---
-
-## CLI Tool
-
-```bash
-# Setup (first time)
-python3 cli.py setup --url http://localhost:8000
-
-# Code review
-python3 cli.py review main.py
-python3 cli.py review main.py utils.py --instruction "Focus on security"
-
-# Chat
-python3 cli.py chat "What is dependency injection?"
-python3 cli.py chat "Why did you flag that SQL injection?" --session chat-abc123
-
-# List sessions
-python3 cli.py sessions
-```
 
 ---
 

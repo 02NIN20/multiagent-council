@@ -1,0 +1,11 @@
+# Modelos con quota agotada (free tier exhausto)
+# Última actualización: 2026-07-02
+# No usar estos modelos hasta que se resetee el quota o se active pago
+
+qwen-plus-latest
+qwen-max
+qwen-plus
+qwen3-coder-plus-2025-09-23
+qwen-turbo
+qwen3-max
+qwen3.7-plus

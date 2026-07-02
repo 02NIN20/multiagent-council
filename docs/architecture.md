@@ -53,11 +53,7 @@ FINDING: Agreeing with Critic on SQL injection at line 45, I found the same patt
 
 ## Deployment
 
-![ECS Instance](ecs-instance.png)
-*ECS instance running in Singapore region (ap-southeast-1)*
-
-![DashScope Usage](dashscope-usage.png)
-*API usage dashboard with token consumption*
+Deployed on Alibaba Cloud ECS (Singapore). See `docs/alibaba-cloud-deployment.md` for details.
 
 | Component | Technology | Version |
 |:----------|:-----------|:--------|
