@@ -60,6 +60,7 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled, followUpMo
   const [images, setImages] = useState<SelectedImage[]>([]);
   const [chatText, setChatText] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
+  const [mode, setMode] = useState<'light' | 'full'>('light');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -234,7 +235,7 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled, followUpMo
 
       // Use first file content as code if no separate code text
       const code = '';
-      onSubmit(code, filePayload, imagePayload, messageText || undefined);
+      onSubmit(code, filePayload, imagePayload, messageText || undefined, mode);
       setFiles([]);
       setImages([]);
       setChatText('');
@@ -259,7 +260,7 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled, followUpMo
       onChatSubmit(messageText);
       setChatText('');
     }
-  }, [files, images, chatText, disabled, onSubmit, onChatSubmit, followUpMode, onFollowUpSubmit]);
+  }, [files, images, chatText, disabled, mode, onSubmit, onChatSubmit, followUpMode, onFollowUpSubmit]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -350,6 +351,23 @@ export default function ChatInput({ onSubmit, onChatSubmit, disabled, followUpMo
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
             </svg>
+          </button>
+        )}
+
+        {/* Mode toggle (light/full) — only when files attached */}
+        {!followUpMode && files.length > 0 && (
+          <button
+            onClick={() => setMode(mode === 'light' ? 'full' : 'light')}
+            disabled={disabled}
+            className={`px-2 py-1 text-[10px] font-bold border rounded transition-colors flex-shrink-0 ${
+              mode === 'full'
+                ? 'bg-retro-cyan/20 border-retro-cyan text-retro-cyan'
+                : 'bg-transparent border-retro-border text-gray-500 hover:text-retro-cyan'
+            }`}
+            aria-label={`Mode: ${mode}`}
+            title={`Mode: ${mode} — light=3 agents/2 rounds, full=6 agents/3 rounds`}
+          >
+            {mode === 'full' ? 'FULL' : 'LIGHT'}
           </button>
         )}
 
