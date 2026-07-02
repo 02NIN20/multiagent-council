@@ -188,6 +188,64 @@ async def implement_fix(code: str, issue: str) -> str:
 
 
 @server.tool()
+async def analyze_file(filename: str, content: str, question: str = "") -> str:
+    """Submit a file for the Agent Society to analyze.
+
+    All agents examine the file from their domain perspective.
+    For large files, analysis is focused on the first part of the file.
+
+    Args:
+        filename: File name (e.g. "main.py").
+        content: File contents as text (max 50000 chars).
+        question: Optional specific question about the file.
+    """
+    if len(content) > 50000:
+        return json.dumps({
+            "error": "File too large (max 50000 chars)", "filename": filename,
+        }, indent=2)
+
+    # Use direct LLM for files > 3000 chars (faster)
+    if len(content) > 3000:
+        from openai import AsyncOpenAI
+        from backend.config import settings
+        client = AsyncOpenAI(api_key=settings.qwen_api_key, base_url=settings.qwen_base_url)
+        truncated = content[:4000]
+        prompt = (
+            f"Analyze this {filename} file.\nQuestion: {question or 'What does this do?'}\n\n"
+            f"```\n{truncated}\n```\n(truncated)\n\n"
+            f"Provide: overview, key components, potential issues."
+        )
+        resp = await client.chat.completions.create(
+            model=settings.qwen_model,
+            messages=[
+                {"role": "system", "content": "You are a code analyst. Provide concise, insightful analysis."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2, max_tokens=2048,
+        )
+        result = resp.choices[0].message.content or ""
+        return json.dumps({"filename": filename, "analysis": result,
+                          "truncated": len(content) > 4000}, indent=2)
+
+    # Small files → route through chat agents
+    payload = {
+        "message": question or f"Analyze this file: {filename}",
+        "files": [{"filename": filename, "content": content,
+                   "language": filename.split('.')[-1]}],
+    }
+    result = await api_post("/api/chat", payload)
+    return json.dumps({
+        "session_id": result.get("session_id"),
+        "response": result.get("response", ""),
+        "agents": [
+            {"agent": c.get("agent"), "role": c.get("role_description"),
+             "answer": c.get("answer")}
+            for c in result.get("agent_contributions", [])
+        ],
+    }, indent=2)
+
+
+@server.tool()
 async def chat(message: str, session_id: str = "") -> str:
     """Ask the Agent Society a question.
 

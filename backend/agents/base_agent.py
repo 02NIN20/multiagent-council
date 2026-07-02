@@ -200,14 +200,20 @@ class BaseAgent(ABC):
     #  General Q&A (non-code-review)
     # ──────────────────────────────────────────────
 
-    async def answer_question(self, question: str, context: str | None = None) -> str:
+    async def answer_question(self, question: str, context: str | None = None, max_tokens: int = 1024) -> str:
         """Answer ANY question from this agent's unique perspective.
 
         Unlike analyze() which does code review, this method handles
-        general Q&A — from greetings to complex science.
+        general Q&A — from greetings to complex technical analysis.
 
-        Each agent responds briefly (1-3 sentences) so the synthesizer
-        can merge them into a single flowing answer.
+        Parameters
+        ----------
+        question : str
+            The user's question or message.
+        context : str | None
+            Additional context (files, conversation history, etc.).
+        max_tokens : int
+            Maximum tokens for the response. Default 1024.
         """
         domain_prompts = {
             "science": "Your domain is SCIENCE and NATURE. Only answer questions about physics, biology, chemistry, astronomy, or the natural world. For history, art, philosophy, or social topics, respond: 'That is outside my domain — the Historian or Generalist would be better suited.'",
@@ -222,13 +228,12 @@ class BaseAgent(ABC):
         domain_rule = domain_prompts.get(self.domain, domain_prompts["general"])
 
         system_prompt = (
-            f"You are {self.role_description} "
+            f"You are {self.role_description}. "
             f"{domain_rule}\n\n"
             "Rules:\n"
-            "- MAXIMUM 80 WORDS. Shorter is better.\n"
+            "- Be concise but thorough. Write as much as needed.\n"
             "- No introductions or sign-offs. Just respond.\n"
-            "- Be yourself — your unique perspective adds value to your domain.\n"
-            "- If the question is outside your domain, politely decline using the line above.\n"
+            "- If the question is outside your domain, politely decline.\n"
         )
 
         user_content = f"### Question:\n{question}\n"
@@ -242,7 +247,7 @@ class BaseAgent(ABC):
                 {"role": "user", "content": user_content},
             ],
             temperature=0.2,
-            max_tokens=256,
+            max_tokens=max_tokens,
         )
         # Track token usage
         if hasattr(response, 'usage') and response.usage:

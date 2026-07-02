@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcpServers": {
+    "qwen-council": {
+      "command": "bash",
+      "args": ["${workspaceFolder}/run_mcp.sh"],
+      "env": {
+        "QWEN_COUNCIL_API_URL": "http://47.84.227.185"
+      }
+    }
+  }
+}

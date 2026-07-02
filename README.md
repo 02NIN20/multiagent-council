@@ -217,19 +217,46 @@ python3 cli.py sessions
 
 ## MCP Server
 
-Expose Qwen Council as tools for Claude Desktop, Cursor, etc.:
+Expose the Agent Society as tools for **OpenCode**, **Claude Desktop**, **Cursor**, etc.
+
+### Setup (1 minute)
+
+```bash
+# 1. Add to ~/.config/opencode/opencode.jsonc:
+{
+  "mcp": {
+    "qwen-council": {
+      "type": "local",
+      "command": ["bash", "/path/to/qwen-council/run_mcp.sh"],
+      "enabled": true
+    }
+  }
+}
+
+# 2. Restart OpenCode — 7 tools available:
+#    chat, analyze_file, review_code, generate_code,
+#    implement_fix, list_sessions, get_session
+```
+
+See `MCP_SETUP.md` for detailed instructions.
+
+### Tools
+
+| Tool | Description |
+|:-----|:------------|
+| `chat(message)` | Ask the 6-agent society any question |
+| `analyze_file(filename, content, question)` | Analyze a code or text file |
+| `review_code(code, instruction, mode)` | Multi-agent code review (light/full) |
+| `generate_code(specification, language)` | **Generate code** from spec |
+| `implement_fix(code, issue)` | **Fix code** issues |
+| `list_sessions(limit)` | List past sessions |
+| `get_session(session_id)` | Get session details |
+
+### Run locally (without MCP)
 
 ```bash
 QWEN_COUNCIL_API_URL=http://localhost:8000 python3 -m backend.mcp_server
 ```
-
-### Claude Desktop Config
-
-```json
-{
-  "mcpServers": {
-    "qwen-council": {
-      "command": "python",
       "args": ["-m", "backend.mcp_server"],
       "cwd": "/path/to/qwen-council",
       "env": { "QWEN_COUNCIL_API_URL": "http://localhost:8000" }
