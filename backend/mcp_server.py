@@ -39,7 +39,7 @@ def _call_llm(system: str, prompt: str, max_tokens: int = 2048) -> str:
     from openai import AsyncOpenAI
     from backend.config import settings
     client = AsyncOpenAI(
-        api_key=settings.llm_api_key,
+        api_key=settings.llm_api_key or "ollama",  # Ollama doesn't require a real key
         base_url=settings.llm_base_url,
         timeout=settings.llm_timeout_seconds,
     )
