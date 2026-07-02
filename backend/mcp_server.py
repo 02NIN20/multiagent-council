@@ -287,7 +287,8 @@ async def implement_fix(code: str, issue: str) -> str:
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     logger.info("Multi-Agent Council MCP server starting (stdio)")
-    logger.info("Model: qwen3-coder-plus-2025-09-23 (set via .env or env vars)")
+    from backend.config import settings
+    logger.info("Model: %s (set via .env or env vars)", settings.llm_model)
     logger.info("Tools: review_code, chat, analyze_file, generate_code, implement_fix")
     try:
         server.run(transport="stdio")
