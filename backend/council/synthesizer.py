@@ -17,6 +17,7 @@ from openai import AsyncOpenAI
 
 from backend.config import settings
 from backend.models.schemas import ConsolidatedFinding, Finding, Report
+from backend.utils.evidence_validator import batch_validate
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,18 @@ async def synthesize(
         len(consolidated), discarded_count,
         (len(consolidated) / max(len(clusters), 1)) * 100,
     )
+
+    # ── Evidence Validation: verify findings against actual source code ──
+    if consolidated and code_context:
+        validated, rejected = batch_validate(consolidated, code_context)
+        ev_discarded = len(rejected)
+        if ev_discarded > 0:
+            consolidated = validated
+            logger.info(
+                "Evidence validator: discarded %d/%d findings (%.0f%% kept after validation)",
+                ev_discarded, ev_discarded + len(validated),
+                (len(validated) / max(ev_discarded + len(validated), 1)) * 100,
+            )
 
     # Sort by severity: Critical -> High -> Medium -> Low
     severity_order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}

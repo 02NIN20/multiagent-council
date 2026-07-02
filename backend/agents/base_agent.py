@@ -102,6 +102,15 @@ class BaseAgent(ABC):
             "- CRITICAL: Always include EXACT line numbers and the actual problematic code.\n"
             "- CRITICAL: In Proposal, show BEFORE (problematic code) and AFTER (fixed code).\n"
             "- CRITICAL: Reference CWE identifiers when applicable (e.g., CWE-89 for SQL injection).\n"
+            "- QUALITY OVER QUANTITY: Only report findings you are confident about. "
+            "It is better to report 2 verified issues than 20 guesses.\n"
+            "- VERIFY YOUR EVIDENCE: Before reporting a vulnerability on a specific line, "
+            "confirm that the code at that line actually contains the vulnerable pattern. "
+            "Do NOT report issues based on variable names alone.\n"
+            "- EXACT LINE REQUIRED: Every finding MUST cite the exact line number. "
+            "Findings without line numbers will be automatically discarded.\n"
+            "- CODE PROOF REQUIRED: Every finding MUST include the actual code snippet "
+            "from the source. Do not describe it — quote it.\n"
             "- Use correct impact level: Critical (exploitable vulnerability/severe bug), "
             "High (significant issue), Medium (important improvement), Low (minor suggestion)."
         )
@@ -111,10 +120,11 @@ class BaseAgent(ABC):
         if round == 1:
             return (
                 "### Round 1: Individual Analysis\n"
-                "Analyse the code below thoroughly and produce ALL findings you detect. "
-                "Be exhaustive — it is better to flag a false positive than to miss a real issue.\n"
+                "Analyse the code below and report ONLY findings you can verify. "
+                "QUALITY over quantity: 2 confirmed issues beat 20 speculative ones.\n"
                 "For each finding include: exact line numbers, the problematic code, "
-                "CWE reference if applicable, and a concrete fix example (BEFORE/AFTER)."
+                "CWE reference if applicable, and a concrete fix example (BEFORE/AFTER).\n"
+                "If you are not sure about a finding, DO NOT report it."
             )
         elif round == 2:
             return (

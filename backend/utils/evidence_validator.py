@@ -197,34 +197,37 @@ def validate_finding(
         result["reason"] = "No line number cited — cannot verify"
         return result
 
-    # 2. Get code at that line
+    # 2. Get code at that line (and ±1 for LLM off-by-one)
     code_lines = extract_code_lines(code)
     if line_num < 1 or line_num > len(code_lines):
         result["reason"] = f"Line {line_num} out of range (file has {len(code_lines)} lines)"
         return result
 
-    actual_line = code_lines[line_num - 1]
+    # Check the cited line AND adjacent lines (±1) for evidence
+    start = max(0, line_num - 2)  # 0-indexed, -1 for the line above
+    end = min(len(code_lines), line_num + 1)  # +1 for the line below
+    context_lines = code_lines[start:end]
+    all_lines_text = "\n".join(context_lines)
 
     # 3. Extract CWE from finding
     cwes = extract_cwe(combined)
     result["cwes"] = cwes
     if not cwes:
-        # No specific CWE — check if line has ANY suspicious content
-        # This is a weak validation but better than nothing
+        # No specific CWE — check if any context line has suspicious content
         suspicious = [
             r"os\.system", r"subprocess", r"eval\s*\(", r"exec\s*\(",
             r"pickle", r"sqlite3", r"execute\s*\(", r"request\.",
             r"open\s*\(", r"\.\./", r"password\s*=", r"secret\s*=",
         ]
         for pat in suspicious:
-            if re.search(pat, actual_line):
+            if re.search(pat, all_lines_text):
                 result["matched_patterns"].append(f"suspicious:{pat}")
                 break
         if result["matched_patterns"]:
             result["valid"] = True
-            result["reason"] = f"Line {line_num} contains suspicious pattern (no specific CWE)"
+            result["reason"] = f"Lines {start+1}-{end} contain suspicious pattern (no specific CWE)"
         else:
-            result["reason"] = f"No CWE referenced and line {line_num} is clean: {actual_line.strip()[:60]}"
+            result["reason"] = f"No CWE referenced and line {line_num} area is clean: {code_lines[line_num-1].strip()[:60]}"
         return result
 
     # 4. Check patterns for each CWE
@@ -240,24 +243,24 @@ def validate_finding(
                 result["reason"] = f"Unknown CWE {cwe} and line {line_num} is empty"
             continue
 
-        # Check each pattern
+        # Check each pattern against context lines (±1)
         line_matches = []
         for pattern in patterns:
-            if re.search(pattern, actual_line, re.IGNORECASE):
+            if re.search(pattern, all_lines_text, re.IGNORECASE):
                 line_matches.append(pattern)
 
         if line_matches:
             result["matched_patterns"].extend([f"{cwe}:{p}" for p in line_matches])
             result["valid"] = True
             result["reason"] = (
-                f"Line {line_num} matches {cwe}: "
+                f"Lines {start+1}-{end} match {cwe}: "
                 f"{', '.join(line_matches[:3])}"
             )
         else:
             # No pattern matched — this is likely a hallucination
             result["reason"] = (
-                f"Line {line_num} has no {cwe} patterns: "
-                f"'{actual_line.strip()[:60]}'"
+                f"Lines {start+1}-{end} have no {cwe} patterns: "
+                f"'{code_lines[line_num-1].strip()[:60]}'"
             )
 
     return result
