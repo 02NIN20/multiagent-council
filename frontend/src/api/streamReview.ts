@@ -153,6 +153,19 @@ export function streamReview(
         const decoder = new TextDecoder();
         let buffer = '';
         let currentEventType = 'message';
+        let streamCompleted = false;
+
+        // Wrap onComplete to track whether the 'complete' SSE event arrived
+        const originalOnComplete = callbacks.onComplete;
+        const wrappedCallbacks: StreamCallbacks = {
+          ...callbacks,
+          onComplete: originalOnComplete
+            ? (sessionId: string, report: Report) => {
+                streamCompleted = true;
+                originalOnComplete(sessionId, report);
+              }
+            : undefined,
+        };
 
         // Read the stream chunk by chunk
         function pump(): void {
@@ -163,6 +176,13 @@ export function streamReview(
                 // Process any remaining data in the buffer
                 if (buffer.trim()) {
                   processLines(buffer);
+                }
+                // If 'complete' event never fired, reject to signal the error path
+                if (!streamCompleted) {
+                  wrappedCallbacks.onError?.('Stream ended unexpectedly — no completion event received');
+                  reject(new Error('Stream ended without completion event'));
+                } else {
+                  resolve({ sessionId: '', report: {} as Report });
                 }
                 return;
               }
@@ -203,7 +223,7 @@ export function streamReview(
               currentEventType = line.slice(6).trim();
             } else if (line.startsWith('data:')) {
               const rawData = line.slice(5).trim();
-              dispatchEvent(currentEventType, rawData, callbacks);
+              dispatchEvent(currentEventType, rawData, wrappedCallbacks);
             }
             // Ignore other fields (id:, retry:, etc.)
           }

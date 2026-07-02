@@ -245,6 +245,7 @@ export default function LiveCouncilStatus({
     streamReview(payload, callbacks).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : 'Stream failed';
       setStatusText(`Error: ${msg}`);
+      onError?.(msg);
       stopTimer();
     });
   }, [isRunning]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -316,7 +317,7 @@ export default function LiveCouncilStatus({
                 }`}
                 aria-label={`Round ${roundNum}: ${isDone ? 'complete' : isActive ? 'in progress' : 'pending'}`}
               >
-                {isDone ? `[${roundNum}] ✓` : isActive ? `[${roundNum}] ▶` : `[${roundNum}]`}
+                {isDone ? `[${roundNum}] OK` : isActive ? `[${roundNum}] >>` : `[${roundNum}]`}
               </div>
             );
           })}
@@ -345,7 +346,7 @@ export default function LiveCouncilStatus({
 
               {/* Status indicator */}
               {agent.status === 'pending' && (
-                <span className="text-[10px] text-gray-700 font-mono">⏳ Pending</span>
+                <span className="text-[10px] text-gray-700 font-mono">... Pending</span>
               )}
               {agent.status === 'analyzing' && (
                 <span className="flex items-center gap-1">
@@ -358,7 +359,7 @@ export default function LiveCouncilStatus({
               )}
               {agent.status === 'complete' && (
                 <span className="flex items-center gap-1 text-[10px] text-retro-green font-mono">
-                  <span className="text-retro-green">[✓]</span>
+                  <span className="text-retro-green">[OK]</span>
                   {agent.findingsCount > 0 && (
                     <span className="text-gray-600">({agent.findingsCount})</span>
                   )}
@@ -374,7 +375,7 @@ export default function LiveCouncilStatus({
         {/* Early exit notice */}
         {earlyExit && (
           <div className="px-2.5 py-1.5 border border-retro-yellow/50 bg-retro-yellow/5 text-xs text-retro-yellow font-mono mb-4">
-            ⚡ Early exit after Round {earlyExit.round}: {earlyExit.reason} ({earlyExit.totalFindings} findings)
+            [!] Early exit after Round {earlyExit.round}: {earlyExit.reason} ({earlyExit.totalFindings} findings)
           </div>
         )}
 
@@ -388,7 +389,7 @@ export default function LiveCouncilStatus({
         {/* Completion message */}
         {hasCompleted && (
           <div className="px-2.5 py-2 border border-retro-green bg-retro-green/10 text-xs text-retro-green font-bold uppercase tracking-wider text-center">
-            ✓ Council Complete — Generating Report
+            [OK] Council Complete — Generating Report
           </div>
         )}
 

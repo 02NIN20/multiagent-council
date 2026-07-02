@@ -94,7 +94,7 @@ function UserMessageView({ message }: { message: UserMessage }) {
             >
               {/* File icon */}
               <span className="text-retro-cyan font-bold text-sm" aria-hidden="true">
-                &#x1F4C4;
+                [FILE]
               </span>
               <div className="flex flex-col">
                 <span className="text-gray-200 font-bold leading-tight">{file.name}</span>
