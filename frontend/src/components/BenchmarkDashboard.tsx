@@ -251,7 +251,7 @@ export default function BenchmarkDashboard({ onClose }: BenchmarkDashboardProps)
           {d.perApp.map((app) => (
             <Bar key={app.name} label={app.name} singleVal={app.single} multiVal={app.multi} maxVal={Math.max(...d.perApp.map(a => a.multi))} />
           ))}
-          <Bar label="Total (combined)" singleVal={d.totalFindings.single} multiVal={d.totalFindings.multi} maxVal={d.totalFindings.multi} />
+          <Bar label="Total (combined)" singleVal={d.totalFindings.single} multiVal={d.totalFindings.multi} maxVal={Math.max(d.totalFindings.single, d.totalFindings.multi)} />
         </div>
 
         {/* ── Precision / Recall / F1 ──────────────────────────── */}
