@@ -47,6 +47,7 @@ export async function sendChatMessage(
   message: string,
   sessionId?: string,
   context?: string,
+  files?: { filename: string; content: string; language?: string }[],
 ): Promise<ChatResponse> {
   return fetchJson<ChatResponse>(`${API_BASE}/chat`, {
     method: 'POST',
@@ -54,6 +55,7 @@ export async function sendChatMessage(
       message,
       session_id: sessionId,
       context,
+      files: files || undefined,
     }),
   });
 }

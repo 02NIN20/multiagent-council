@@ -195,22 +195,28 @@ export default function App() {
 
   /**
    * Handle chat question submission — sends free-text to the multi-agent chat API.
+   * Supports optional file attachments for agent analysis.
    */
   const handleChatSubmit = useCallback(
-    async (question: string) => {
-      // Create user message
+    async (question: string, files?: { filename: string; content: string; language?: string }[]) => {
+      // Create user message with file context
       const userMsg: ChatMessageData = {
         id: uid(),
         role: 'user',
         content: question,
         code: '',
+        fileInfo: files?.map(f => ({
+          name: f.filename,
+          size: f.content.length,
+          language: f.language,
+        })),
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
 
       try {
-        const response = await sendChatMessage(question, activeSessionId);
+        const response = await sendChatMessage(question, activeSessionId, undefined, files);
 
         // Create answer message with agent contributions
         const answerMsg: ChatMessageData = {

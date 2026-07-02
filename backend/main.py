@@ -634,6 +634,15 @@ async def chat_general(
         if payload.context:
             agent_context += f"### Additional context:\n{payload.context}\n"
 
+        # Add file contents to context if files were uploaded
+        file_context = ""
+        if payload.files:
+            file_parts = []
+            for f in payload.files:
+                file_parts.append(f"### File: {f.filename}\n```\n{f.content}\n```")
+            file_context = "\n\n".join(file_parts)
+            agent_context += f"\n### Uploaded files:\n{file_context}\n"
+
         async def ask_agent(name: str, agent: object) -> dict:
             """Call a single agent's answer_question and return its contribution."""
             try:
