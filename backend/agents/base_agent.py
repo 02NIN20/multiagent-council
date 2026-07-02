@@ -18,6 +18,7 @@ from openai import AsyncOpenAI, APIStatusError, RateLimitError
 from backend.config import settings
 from backend.llm.provider import get_provider
 from backend.models.schemas import Finding
+from backend.utils.diagnostics import diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -286,10 +287,19 @@ class BaseAgent(ABC):
     # ──────────────────────────────────────────────
 
     async def _call_llm(self, user_prompt: str) -> str:
-        """Send a chat completion request via the LLM provider."""
+        """Send a chat completion request via the LLM provider.
+
+        On error, returns ``"LLM_ERROR: <details>"`` instead of silently
+        returning ``"NO_FINDINGS"`` so callers and the frontend can
+        distinguish a real empty response from an API failure.
+        """
         if not settings.llm_api_key:
-            logger.error("[%s] Qwen API key is not set! Cannot call LLM.", self.name)
-            return "NO_FINDINGS"
+            logger.error("[%s] LLM API key is not set! Cannot call LLM.", self.name)
+            diagnostics.record(
+                component=f"agent:{self.name}",
+                error="LLM API key is not configured (settings.llm_api_key is empty)",
+            )
+            return "LLM_ERROR: API key not configured"
 
         try:
             response = await self._client.chat.completions.create(
@@ -312,20 +322,35 @@ class BaseAgent(ABC):
 
             return response.choices[0].message.content or "NO_FINDINGS"
         except Exception as e:
-            logger.error("[%s] LLM call failed: %s", self.name, str(e))
-            return "NO_FINDINGS"
+            # Log the FULL exception with traceback so the failure mode is visible
+            # in container logs and debugging tools — never silently swallow.
+            logger.exception("[%s] LLM call failed: %s", self.name, str(e))
+            diagnostics.record(
+                component=f"agent:{self.name}",
+                error=f"{type(e).__name__}: {str(e)[:500]}",
+                context={"model": self._model, "prompt_chars": len(user_prompt)},
+            )
+            return f"LLM_ERROR: {type(e).__name__}: {str(e)[:300]}"
 
     # ──────────────────────────────────────────────
     #  Response parsing
     # ──────────────────────────────────────────────
 
     def _parse_findings(self, text: str, round: int) -> list[Finding]:
-        """Parse the LLM response into a list of Findings."""
-        if not text or text.strip() == "NO_FINDINGS":
+        """Parse the LLM response into a list of Findings.
+
+        Returns an empty list for ``"NO_FINDINGS"`` (legitimate empty response)
+        or for ``"LLM_ERROR: ..."`` markers (API failure). The orchestrator
+        and API surface expose the error separately via diagnostics.
+        """
+        if not text:
+            return []
+        stripped = text.strip()
+        if stripped == "NO_FINDINGS" or stripped.startswith("LLM_ERROR"):
             return []
 
         findings: list[Finding] = []
-        blocks = text.strip().split("\n\n")
+        blocks = stripped.split("\n\n")
 
         for block in blocks:
             if "WITHDRAWN:" in block:

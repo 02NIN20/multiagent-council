@@ -1,11 +1,17 @@
 """FastAPI application entry point for Qwen Council.
 
 Endpoints:
-  POST /api/review       — Run the council on submitted code
-  GET  /api/sessions      — List previous sessions
-  GET  /api/sessions/{id} — Session detail
-  GET  /api/memory/patterns — Consolidated semantic patterns
-  GET  /api/health        — Health check
+  POST /api/review          — Run the council on submitted code
+  POST /api/review/stream   — Stream council progress via SSE
+  POST /api/chat            — Multi-agent chat (content-aware routing)
+  POST /api/chat/stream     — Stream chat via SSE
+  GET  /api/sessions         — List previous sessions
+  GET  /api/sessions/{id}    — Session detail
+  DELETE /api/sessions/{id}  — Delete a session
+  GET  /api/memory/patterns  — Consolidated semantic patterns
+  GET  /api/health           — Health check
+  GET  /api/diagnostics      — Recent LLM/agent errors (debugging)
+  POST /api/diagnostics/clear — Clear diagnostics store
 """
 
 from __future__ import annotations
@@ -1052,6 +1058,32 @@ async def health_check():
     except Exception:
         pass
     return HealthResponse(status="ok", version="1.0.0", db_connected=db_ok)
+
+
+@router.get("/diagnostics", tags=["Health"])
+@legacy_router.get("/diagnostics", include_in_schema=False)
+async def get_diagnostics(limit: int = 20):
+    """Return the most recent LLM/agent errors.
+
+    Useful for debugging why a review returned zero findings — the
+    diagnostics store captures every exception from ``BaseAgent._call_llm``
+    and other LLM call sites, so the failure mode is visible here
+    instead of being silently swallowed.
+    """
+    from backend.utils.diagnostics import diagnostics as _diag
+    return {
+        "count": len(_diag.latest(limit)),
+        "entries": _diag.latest(limit),
+    }
+
+
+@router.post("/diagnostics/clear", tags=["Health"])
+@legacy_router.post("/diagnostics/clear", include_in_schema=False)
+async def clear_diagnostics():
+    """Clear the diagnostics store."""
+    from backend.utils.diagnostics import diagnostics as _diag
+    _diag.clear()
+    return {"status": "cleared"}
 
 
 # Register routers with the app after all endpoints are defined
