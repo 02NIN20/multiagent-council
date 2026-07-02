@@ -95,7 +95,7 @@ export default function Sidebar({ onNewChat, onSelectSession, activeSessionId, c
   return (
     <div className="w-64 bg-retro-surface border-r border-retro-border flex flex-col h-full">
       <div className="p-3 border-b border-retro-border flex items-center justify-between">
-        <span className="text-xs font-bold text-retro-cyan uppercase tracking-widest">&gt; Qwen Council</span>
+        <span className="text-xs font-bold text-retro-cyan uppercase tracking-widest">&gt; Multi-Agent Council</span>
         <button onClick={onToggle} className="text-gray-500 hover:text-retro-cyan transition-colors" aria-label="Collapse sidebar">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />

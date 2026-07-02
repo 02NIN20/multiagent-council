@@ -1,6 +1,6 @@
 """Level 3: Semantic memory — pgvector embeddings for consolidated patterns.
 
-Uses the Qwen Cloud API (text-embedding-v3) to generate 1536-dimension
+Uses the Qwen Cloud API (text-embedding-v3) to generate 1024-dimension
 embeddings stored in a PostgreSQL table with pgvector extension.
 """
 

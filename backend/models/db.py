@@ -130,7 +130,7 @@ class SemanticMemory(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     pattern_text: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding: Mapped[Any] = mapped_column(Vector(1536), nullable=False)
+    embedding: Mapped[Any] = mapped_column(Vector(1024), nullable=False)
     category: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     strength: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

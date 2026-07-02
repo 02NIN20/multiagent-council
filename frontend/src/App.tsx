@@ -275,7 +275,7 @@ export default function App() {
           <div className="flex items-center justify-between px-4 py-2 border-b border-retro-border bg-retro-surface">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-retro-cyan uppercase tracking-widest">
-                &gt; QWEN COUNCIL
+                &gt; MULTI-AGENT COUNCIL
               </span>
               {activeSessionId && (
                 <span className="text-[10px] text-gray-600 font-mono">

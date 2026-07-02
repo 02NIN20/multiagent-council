@@ -76,7 +76,7 @@ export default function ChatView({ messages, onSubmit, onChatSubmit, disabled, s
 
               {/* Title with blinking cursor */}
               <h1 className="text-2xl font-bold text-retro-cyan mb-2 tracking-tight">
-                Qwen Council
+                Multi-Agent Council
                 <span className="inline-block w-3 h-6 bg-retro-cyan ml-1.5 animate-blink align-middle" />
               </h1>
 
