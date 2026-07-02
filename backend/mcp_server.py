@@ -80,7 +80,88 @@ async def review_code(code: str, instruction: str = "", mode: str = "light") -> 
 
 
 @server.tool()
-async def analyze_file(filename: str, content: str, question: str = "") -> str:
+async def generate_code(specification: str, language: str = "python") -> str:
+    """Generate code from a specification using the Engineer agent.
+
+    The Engineer agent writes implementation code based on your requirements.
+
+    Args:
+        specification: What code to generate (e.g. "A Flask REST API with SQLite").
+        language: Programming language (python, javascript, typescript, etc.).
+
+    Returns:
+        Generated code with explanation.
+    """
+    from openai import AsyncOpenAI
+    from backend.config import settings
+
+    client = AsyncOpenAI(api_key=settings.qwen_api_key, base_url=settings.qwen_base_url)
+    prompt = (
+        f"Generate {language} code for the following specification.\n\n"
+        f"Specification: {specification}\n\n"
+        f"Output the complete code implementation with:\n"
+        f"- Well-structured {language} code\n"
+        f"- Comments explaining key sections\n"
+        f"- Error handling where appropriate\n"
+        f"- Best practices for {language}\n"
+    )
+    response = await client.chat.completions.create(
+        model=settings.qwen_model,
+        messages=[
+            {"role": "system", "content": f"You are an expert {language} developer. Write clean, production-ready code."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.2,
+        max_tokens=4096,
+    )
+    result = response.choices[0].message.content or ""
+    return json.dumps({
+        "language": language,
+        "specification": specification,
+        "generated_code": result,
+    }, indent=2)
+
+
+@server.tool()
+async def implement_fix(code: str, issue: str) -> str:
+    """Generate a code fix for a specific issue using the Engineer agent.
+
+    The Engineer agent analyzes the problem and produces corrected code.
+
+    Args:
+        code: The current code with the issue.
+        issue: Description of what's wrong or what to fix.
+
+    Returns:
+        Fixed code with explanation of changes.
+    """
+    from openai import AsyncOpenAI
+    from backend.config import settings
+
+    client = AsyncOpenAI(api_key=settings.qwen_api_key, base_url=settings.qwen_base_url)
+    prompt = (
+        f"Fix the following issue in this code.\n\n"
+        f"Issue: {issue}\n\n"
+        f"Code:\n```\n{code}\n```\n\n"
+        f"Output:\n"
+        f"- The corrected/fixed code\n"
+        f"- Brief explanation of what was wrong and what changed\n"
+        f"- Testing suggestions if applicable"
+    )
+    response = await client.chat.completions.create(
+        model=settings.qwen_model,
+        messages=[
+            {"role": "system", "content": "You are an expert developer. Fix code issues and explain your changes."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.2,
+        max_tokens=4096,
+    )
+    result = response.choices[0].message.content or ""
+    return json.dumps({
+        "original_issue": issue,
+        "fixed_code": result,
+    }, indent=2)
     """Submit a file for the Agent Society to analyze.
 
     All 6 agents examine the file and provide domain-specific insights.
