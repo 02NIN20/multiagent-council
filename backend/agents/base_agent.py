@@ -327,7 +327,7 @@ class BaseAgent(ABC):
             sp = system_prompt if system_prompt is not None else self._build_system_prompt()
             # Build user message — text-only or multimodal
             if images:
-                model = "qwen-vl-plus-latest"
+                model = "qwen-vl-plus"
                 content: list[dict] = [{"type": "text", "text": user_prompt}]
                 for img in images:
                     # Handle both Pydantic model objects and plain dicts

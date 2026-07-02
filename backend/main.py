@@ -713,7 +713,7 @@ async def chat_general(
                 })
             try:
                 vision_response = await vision_client.chat.completions.create(
-                    model="qwen-vl-plus-latest",
+                    model="qwen-vl-plus",
                     messages=[
                         {"role": "system", "content": "You are a visual analyst. Describe images thoroughly and accurately."},
                         {"role": "user", "content": vision_content},
