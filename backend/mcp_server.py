@@ -1,18 +1,10 @@
-"""MCP (Model Context Protocol) server for Qwen Council.
+"""MCP server for Multi-Agent Council.
 
-Exposes the Agent Society as tools for OpenCode, Claude Desktop, Cursor, etc.
-
-Tools:
-  - chat: Quick questions for the Agent Society
-  - analyze_file: Analyze a code/text file
-  - review_code: Multi-agent code review (3 rounds of debate)
-  - generate_code: Generate code from a specification
-  - implement_fix: Fix code issues
-  - list_sessions: List past sessions
-  - get_session: Get session details
+Exposes the Agent Society directly (no HTTP API needed) as MCP tools
+for OpenCode, Claude Desktop, Cursor, and any MCP-compatible client.
 
 Usage:
-    MULTIAGENT_COUNCIL_API_URL=http://localhost:8000 python3 -m backend.mcp_server
+    python3 -m backend.mcp_server
 """
 
 from __future__ import annotations
@@ -22,325 +14,230 @@ import logging
 import os
 from typing import Any
 
-import httpx
 from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
-
-API_BASE_URL = os.environ.get("MULTIAGENT_COUNCIL_API_URL") or os.environ.get("QWEN_COUNCIL_API_URL") or "http://localhost:8000"
 server = FastMCP("multiagent-council")
 
-
-# ── API helpers ──────────────────────────────────────────────────
-
-
-async def api_post(path: str, data: dict, timeout: int = 300) -> dict:
-    """Make a POST request to the Qwen Council API."""
-    url = f"{API_BASE_URL.rstrip('/')}{path}"
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        resp = await client.post(url, json=data, headers={"Content-Type": "application/json"})
-        resp.raise_for_status()
-        return resp.json()
+# Lazy import — the orchestrator is heavy and imports many things,
+# so we only load it when a tool is actually called.
+_orchestrator: Any = None
 
 
-async def api_get(path: str) -> dict:
-    """Make a GET request to the Qwen Council API."""
-    url = f"{API_BASE_URL.rstrip('/')}{path}"
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-        return resp.json()
+def _get_orchestrator():
+    """Import and cache the CouncilOrchestrator singleton."""
+    global _orchestrator
+    if _orchestrator is None:
+        from backend.council.orchestrator import CouncilOrchestrator
+        _orchestrator = CouncilOrchestrator()
+    return _orchestrator
 
 
-async def _call_llm(system: str, prompt: str, max_tokens: int = 2048) -> str:
-    """Direct LLM call (no agent routing). Used by generate_code and analyze_file."""
+def _call_llm(system: str, prompt: str, max_tokens: int = 2048) -> str:
+    """Direct LLM call for tools that don't need the full council."""
+    import asyncio
     from openai import AsyncOpenAI
     from backend.config import settings
-    client = AsyncOpenAI(api_key=settings.llm_api_key, base_url=settings.llm_base_url)
-    response = await client.chat.completions.create(
-        model=settings.llm_model,
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-        temperature=0.2,
-        max_tokens=max_tokens,
+    client = AsyncOpenAI(
+        api_key=settings.llm_api_key,
+        base_url=settings.llm_base_url,
+        timeout=settings.llm_timeout_seconds,
+    )
+    response = asyncio.run(
+        client.chat.completions.create(
+            model=settings.llm_model,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=max_tokens,
+        )
     )
     return response.choices[0].message.content or ""
 
 
-# ── Tools ────────────────────────────────────────────────────────
+async def _run_review(code: str, instruction: str = "", mode: str = "light") -> str:
+    """Run a council review and return formatted JSON."""
+    orch = _get_orchestrator()
+    report, session_id, round_data = await orch.run_council(
+        code=code,
+        instruction=instruction or None,
+        mode=mode,
+    )
+    findings = report.findings or []
+    return json.dumps({
+        "session_id": session_id,
+        "findings_count": len(findings),
+        "summary": report.summary,
+        "risk_overview": report.risk_overview,
+        "remediation_roadmap": report.remediation_roadmap,
+        "token_usage": report.token_usage,
+        "findings": [
+            {"title": f.title, "impact": f.impact,
+             "detail": f.detail[:200], "proposal": f.proposal[:200]}
+            for f in findings[:20]
+        ],
+    }, indent=2)
 
 
-@server.tool()
-async def chat(message: str, session_id: str = "") -> str:
-    """Ask a question to the Agent Society (6 role-based AI agents).
-
-    The question is classified and routed to 1-3 relevant agents
-    (Analyst, Architect, Engineer, Critic, Researcher, or Coordinator).
-    Their answers are merged into a single flowing response.
-
-    Ideal for: design advice, architecture questions, brainstorming,
-    code reviews, technical explanations.
-
-    Args:
-        message: Your question or request for the agents.
-        session_id: Optional session ID to continue a previous conversation.
-    """
-    try:
-        payload: dict[str, Any] = {"message": message}
-        if session_id:
-            payload["session_id"] = session_id
-        result = await api_post("/api/chat", payload, timeout=120)
-        return json.dumps({
-            "response": result.get("response", ""),
-            "session_id": result.get("session_id"),
-            "agents": [{"name": c.get("agent"), "answer": c.get("answer")}
-                       for c in result.get("agent_contributions", [])],
-        }, indent=2)
-    except httpx.TimeoutException:
-        return json.dumps({"error": "Request timed out. Try a simpler question.", "tool": "chat"})
-    except Exception as e:
-        logger.exception("chat failed")
-        return json.dumps({"error": str(e)[:200], "tool": "chat"})
-
-
-@server.tool()
-async def analyze_file(filename: str, content: str, question: str = "") -> str:
-    """Submit a file for the Agent Society to analyze.
-
-    For code files: 6 agents debate through review rounds.
-    For non-code files (math, research, text): routes to the
-    most relevant generalist agents (Coordinator, Analyst, Researcher).
-
-    Args:
-        filename: File name with extension (e.g. "main.py", "paper.tex", "notes.md").
-        content: Full text content of the file.
-        question: Optional specific question about the file.
-    """
-    try:
-        if len(content) > 50000:
-            return json.dumps({"error": "File too large (max 50000 chars)", "filename": filename}, indent=2)
-
-        from backend.utils.content_detector import detect_content_type
-        content_type = detect_content_type(filename, content)
-
-        # For small non-code files, route through chat agents (which will adapt)
-        if content_type != "code" and len(content) <= 4000:
-            payload = {
-                "message": question or f"Analyze this file: {filename}",
-                "files": [{"filename": filename, "content": content,
-                          "language": filename.split('.')[-1]}],
-            }
-            result = await api_post("/api/chat", payload, timeout=120)
-            return json.dumps({
-                "filename": filename,
-                "content_type": content_type,
-                "response": result.get("response", ""),
-                "agents": [
-                    {"agent": c.get("agent"), "role": c.get("role_description"),
-                     "answer": c.get("answer")}
-                    for c in result.get("agent_contributions", [])
-                ],
-            }, indent=2)
-
-        # For code files or large files, use direct LLM
-        truncated = content[:4000] if len(content) > 4000 else content
-        from openai import AsyncOpenAI
-        from backend.config import settings
-        client = AsyncOpenAI(api_key=settings.llm_api_key, base_url=settings.llm_base_url)
-
-        if content_type == "code":
-            system = "You are a senior code analyst. Be concise but thorough."
-        elif content_type == "math":
-            system = "You are a math expert. Explain equations clearly using LaTeX notation."
-        elif content_type == "research":
-            system = "You are a research analyst. Summarize key findings objectively."
-        elif content_type == "markdown":
-            system = "You are a document editor. Provide feedback on structure and clarity."
-        else:
-            system = "You are a content analyst. Read carefully and answer the question."
-
-        prompt = (
-            f"Analyze this {filename} file (type: {content_type}).\n"
-            f"Question: {question or 'What does this content do/say?'}\n\n"
-            f"```\n{truncated}\n```\n"
-            + ("(truncated to first 4000 chars)\n" if len(content) > 4000 else "")
-            + "\nProvide: overview, key points, potential issues or insights."
-        )
-        resp = await client.chat.completions.create(
-            model=settings.llm_model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2, max_tokens=2048,
-        )
-        result = resp.choices[0].message.content or ""
-        return json.dumps({
-            "filename": filename,
-            "content_type": content_type,
-            "analysis": result,
-            "truncated": len(content) > 4000,
-        }, indent=2)
-    except Exception as e:
-        logger.exception("analyze_file failed")
-        return json.dumps({"error": str(e)[:200], "tool": "analyze_file", "filename": filename})
+# ── Tools ──────────────────────────────────────────────────────────
 
 
 @server.tool()
 async def review_code(code: str, instruction: str = "", mode: str = "light") -> str:
     """Run a full multi-agent code review with 6 specialized agents.
 
-    The code is analyzed through structured debate rounds:
-    - light mode: 3 agents, 2 rounds (faster, ~60s)
-    - full mode: 6 agents, 4 rounds + negotiation (thorough, ~180s)
+    The code is analyzed through 3 debate rounds (individual → cross-debate
+    → refinement). Each agent delegates to 2-3 sub-agents (SecurityAuditor,
+    CodeWriter, StaticAnalyzer, etc.).
 
-    Each agent produces findings in Inverted Pyramid format.
-    The council returns: findings with severity, consensus scores,
-    and a remediation roadmap.
-
-    Best for: security audits, architecture review, quality checks,
-    pre-PR code review, identifying bugs and anti-patterns.
+    light mode: 3 agents, 2 rounds, budget $0.20 (∼60s)
+    full mode: 6 agents, 3 rounds, budget $1.00 (∼180s)
 
     Args:
         code: The complete source code to review.
-        instruction: Optional focus area (e.g. "Focus on security and SQL injection").
+        instruction: Optional focus area (e.g. "Focus on SQL injection").
         mode: "light" for speed (default), "full" for thoroughness.
     """
     try:
-        payload: dict[str, Any] = {"code": code, "mode": mode}
-        if instruction:
-            payload["instruction"] = instruction
-        timeout = 120 if mode == "light" else 300
-        result = await api_post("/api/review", payload, timeout=timeout)
-        report = result.get("report", {})
-        return json.dumps({
-            "session_id": result.get("session_id"),
-            "findings_count": len(report.get("findings", [])),
-            "summary": report.get("summary", ""),
-            "token_usage": report.get("token_usage", {}),
-            "findings": [{"title": f.get("title"), "impact": f.get("impact"),
-                          "proposal": f.get("proposal")}
-                         for f in report.get("findings", [])[:20]],
-        }, indent=2)
-    except httpx.TimeoutException:
-        return json.dumps({"error": "Review timed out. Try mode='light' or smaller code.", "tool": "review_code"})
+        return await _run_review(code, instruction, mode)
     except Exception as e:
         logger.exception("review_code failed")
-        return json.dumps({"error": str(e)[:200], "tool": "review_code"})
+        return json.dumps({"error": str(e)[:300], "tool": "review_code"})
+
+
+@server.tool()
+async def chat(message: str) -> str:
+    """Ask a question to the Agent Society (6 AI agents).
+
+    The question is routed to 1-3 relevant agents depending on topic.
+    Each agent answers from its role perspective, then answers are merged.
+
+    Args:
+        message: Your question for the agents.
+    """
+    try:
+        from backend.main import _classify_question, _route_question, _synthesize_chat
+        from backend.agents.core.coordinator_agent import CoordinatorAgent
+        from backend.agents.core.analyst_agent import AnalystAgent
+        from backend.agents.core.architect_agent import ArchitectAgent
+        from backend.agents.core.engineer_agent import EngineerAgent
+        from backend.agents.core.critic_agent import CriticAgent
+        from backend.agents.core.researcher_agent import ResearcherAgent
+
+        agents = {
+            "coordinator": CoordinatorAgent(),
+            "analyst": AnalystAgent(),
+            "architect": ArchitectAgent(),
+            "engineer": EngineerAgent(),
+            "critic": CriticAgent(),
+            "researcher": ResearcherAgent(),
+        }
+
+        category = _classify_question(message)
+        selected = _route_question(category, has_images=False)
+
+        import asyncio
+        async def ask(name, agent):
+            try:
+                ans = await agent.answer_question(message)
+                return {"agent": name, "role": agent.role_description, "answer": ans}
+            except Exception as e:
+                return {"agent": name, "role": "", "answer": f"[unavailable: {e}]"}
+
+        tasks = [ask(name, agent) for name, agent in selected if name in agents]
+        contributions = await asyncio.gather(*tasks)
+        final = await _synthesize_chat(message, contributions)
+
+        return json.dumps({
+            "response": final,
+            "agents": [{"name": c["agent"], "role": c["role"], "answer": c["answer"][:300]}
+                       for c in contributions],
+        }, indent=2)
+    except Exception as e:
+        logger.exception("chat failed")
+        return json.dumps({"error": str(e)[:300], "tool": "chat"})
+
+
+@server.tool()
+async def analyze_file(filename: str, content: str, question: str = "") -> str:
+    """Analyze a file using the appropriate agent.
+
+    For code: runs a full council review.
+    For text/math/research: uses Analyst + Researcher agents.
+
+    Args:
+        filename: File name (e.g. "main.py").
+        content: Full file content.
+        question: Optional specific question.
+    """
+    try:
+        from backend.utils.content_detector import detect_content_type
+        ct = detect_content_type(filename, content)
+
+        if ct == "code":
+            return await _run_review(content, question or f"Analyze {filename}", mode="light")
+
+        # Non-code: direct LLM with role-appropriate prompt
+        prompts = {
+            "math": "You are a math expert. Explain equations clearly using LaTeX.",
+            "research": "You are a research analyst. Summarize findings objectively.",
+            "markdown": "You are a document editor. Provide feedback on structure.",
+        }
+        system = prompts.get(ct, "You are a content analyst. Answer the question.")
+        truncated = content[:4000]
+        prompt = f"Analyze {filename} ({ct}):\n{question or 'What does this do?'}\n\n```\n{truncated}\n```"
+        result = _call_llm(system, prompt)
+        return json.dumps({"filename": filename, "type": ct, "analysis": result}, indent=2)
+    except Exception as e:
+        logger.exception("analyze_file failed")
+        return json.dumps({"error": str(e)[:300], "tool": "analyze_file"})
 
 
 @server.tool()
 async def generate_code(specification: str, language: str = "python") -> str:
-    """Generate production-ready code from a specification.
-
-    Uses Qwen LLM directly to write clean, well-commented code
-    following best practices for the specified language.
-
-    Best for: boilerplate generation, API endpoints, data models,
-    utility functions, configuration files, test cases.
+    """Generate code from a specification.
 
     Args:
         specification: What to build (e.g. "FastAPI CRUD for users with SQLite").
-        language: Target programming language (python, javascript, typescript, go, rust, etc.).
+        language: Target language (python, javascript, go, rust, etc.).
     """
     try:
         prompt = (
             f"Generate complete {language} code:\n{specification}\n\n"
-            f"Requirements:\n- Well-structured, production-ready code\n"
-            f"- Comments explaining key sections\n- Error handling\n"
+            f"Requirements:\n- Production-ready\n- Error handling\n"
             f"- Best practices for {language}"
         )
-        result = await _call_llm(
-            f"You are an expert {language} developer. Write clean code with comments.",
-            prompt,
-            max_tokens=4096,
-        )
-        return json.dumps({
-            "language": language,
-            "specification": specification,
-            "code": result,
-        }, indent=2)
+        result = _call_llm(f"You are an expert {language} developer.", prompt, max_tokens=4096)
+        return json.dumps({"language": language, "code": result}, indent=2)
     except Exception as e:
         logger.exception("generate_code failed")
-        return json.dumps({"error": str(e)[:200], "tool": "generate_code"})
+        return json.dumps({"error": str(e)[:300], "tool": "generate_code"})
 
 
 @server.tool()
 async def implement_fix(code: str, issue: str) -> str:
-    """Fix a bug or code issue and explain the solution.
-
-    Analyzes the problematic code and produces a corrected version
-    with explanation of what was wrong and why the fix works.
-
-    Best for: fixing bugs, patching security vulnerabilities,
-    resolving performance bottlenecks, correcting logic errors.
+    """Fix a bug or code issue.
 
     Args:
-        code: The current code containing the issue.
+        code: The current code with the issue.
         issue: Description of what's wrong (e.g. "SQL injection in line 12").
     """
     try:
-        prompt = (
-            f"Fix this issue:\nIssue: {issue}\n\n"
-            f"Code:\n```\n{code}\n```\n\n"
-            f"Output the corrected code with brief explanation of what changed."
-        )
-        result = await _call_llm(
-            "You are an expert developer. Fix the issue and explain your changes concisely.",
-            prompt,
-            max_tokens=4096,
-        )
+        prompt = f"Fix this:\nIssue: {issue}\n\nCode:\n```\n{code}\n```\n\nOutput corrected code + explanation."
+        result = _call_llm("You are an expert developer. Fix the issue.", prompt, max_tokens=4096)
         return json.dumps({"issue": issue, "fix": result}, indent=2)
     except Exception as e:
         logger.exception("implement_fix failed")
-        return json.dumps({"error": str(e)[:200], "tool": "implement_fix"})
+        return json.dumps({"error": str(e)[:300], "tool": "implement_fix"})
 
 
-@server.tool()
-async def list_sessions(limit: int = 20) -> str:
-    """List past code review and chat sessions.
-
-    Returns a list of session summaries with IDs, dates, and finding counts.
-
-    Args:
-        limit: Maximum number of sessions to return (default 20, max 100).
-    """
-    try:
-        sessions = await api_get("/api/sessions")
-        return json.dumps([
-            {"id": s.get("id"), "date": s.get("created_at"),
-             "findings": s.get("finding_count", 0), "score": s.get("score", 0)}
-            for s in sessions[:min(limit, 100)]
-        ], indent=2)
-    except Exception as e:
-        logger.exception("list_sessions failed")
-        return json.dumps({"error": str(e)[:200], "tool": "list_sessions"})
-
-
-@server.tool()
-async def get_session(session_id: str) -> str:
-    """Get details of a specific session by ID.
-
-    Returns the full session data including reviewed code,
-    findings or chat history, and metadata.
-
-    Args:
-        session_id: Session ID to retrieve (e.g. "ses-abc123").
-    """
-    try:
-        session = await api_get(f"/api/sessions/{session_id}")
-        return json.dumps(session, indent=2, default=str)
-    except Exception as e:
-        logger.exception("get_session failed")
-        return json.dumps({"error": str(e)[:200], "tool": "get_session"})
-
-
-# ── Main ─────────────────────────────────────────────────────────
+# ── Main ───────────────────────────────────────────────────────────
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
-    logger.info("Qwen Council MCP server starting (stdio)")
-    logger.info("API URL: %s", API_BASE_URL)
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    logger.info("Multi-Agent Council MCP server starting (stdio)")
+    logger.info("Model: qwen3-coder-plus-2025-09-23 (set via .env or env vars)")
+    logger.info("Tools: review_code, chat, analyze_file, generate_code, implement_fix")
     try:
         server.run(transport="stdio")
     except KeyboardInterrupt:
